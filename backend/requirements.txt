@@ -10,3 +10,4 @@ groq
 pandas
 gunicorn
 python-dotenv
+yfinance
