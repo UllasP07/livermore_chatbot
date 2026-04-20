@@ -97,20 +97,32 @@ def backtest():
         d["200MA"]  = d["Close"].rolling(200).mean()
         d["20High"] = d["Close"].rolling(20).max()
         d["20Low"]  = d["Close"].rolling(20).min()
-        d["Position"] = 0
-        d.loc[(d["Close"] > d["20High"].shift(1)) & (d["Close"] > d["50MA"]) & (d["Close"] > d["200MA"]), "Position"] = 1
-        d.loc[d["Close"] < d["20Low"].shift(1), "Position"] = -1
-        d["Position"]         = d["Position"].replace(0, pd.NA).ffill().fillna(0)
-        d["BH Return"]        = d["Close"].pct_change()
-        d["Strategy Return"]  = d["BH Return"] * d["Position"]
-        d["BH Cumulative"]    = d["BH Return"].cumsum()
-        d["Strat Cumulative"] = d["Strategy Return"].cumsum()
-        bh_total    = float(d["BH Cumulative"].iloc[-1])
-        strat_total = float(d["Strat Cumulative"].iloc[-1])
+
+        # Signal: 1 = long, 0 = flat (never short)
+        d["Signal"] = 0
+        d.loc[(d["Close"] > d["20High"].shift(1)) &
+              (d["Close"] > d["50MA"]) &
+              (d["Close"] > d["200MA"]), "Signal"] = 1
+        d.loc[d["Close"] < d["20Low"].shift(1), "Signal"] = 0
+
+        # Hold position until exit signal (forward fill)
+        d["Position"] = d["Signal"].replace(0, pd.NA).ffill().fillna(0)
+
+        # Correct compounding returns
+        d["Daily Return"]     = d["Close"].pct_change()
+        d["Strategy Return"]  = d["Daily Return"] * d["Position"].shift(1)
+
+        d["BH Cumulative"]    = (1 + d["Daily Return"]).cumprod() - 1
+        d["Strat Cumulative"] = (1 + d["Strategy Return"]).cumprod() - 1
+
+        bh_total    = float(d["BH Cumulative"].dropna().iloc[-1])
+        strat_total = float(d["Strat Cumulative"].dropna().iloc[-1])
         trade_count = int((d["Position"].diff().fillna(0) != 0).sum())
-        dc   = d.dropna(subset=["BH Cumulative","Strat Cumulative"])
+
+        dc   = d.dropna(subset=["BH Cumulative", "Strat Cumulative"])
         step = max(1, len(dc) // 200)
         ds   = dc.iloc[::step]
+
         return jsonify({
             "symbol": symbol, "start_date": start_date, "end_date": end_date,
             "bh_return":       round(bh_total * 100, 2),
