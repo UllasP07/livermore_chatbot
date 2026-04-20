@@ -525,7 +525,6 @@ function showErr(msg){
 }
 
 function renderResults(d){
-  // Metric cards
   document.getElementById("res-symbol").textContent = d.symbol;
 
   const bhEl = document.getElementById("res-bh");
@@ -541,7 +540,16 @@ function renderResults(d){
   outEl.className = "rc-val " + (d.outperformance >= 0 ? "pos" : "neg");
   document.getElementById("res-trades").textContent = d.trade_count;
 
-  // Chart
+  // ── Dynamic insights based on results ─────────────────────────────────────
+  const insights = buildInsights(d);
+  const grid = document.querySelector(".principle-grid");
+  grid.innerHTML = insights.map(ins => `
+    <div class="principle" style="border-left-color:${ins.color}">
+      <strong style="color:${ins.color}">${ins.title}</strong>
+      <span>${ins.body}</span>
+    </div>`).join("");
+
+  // ── Chart ──────────────────────────────────────────────────────────────────
   if(chartInstance) chartInstance.destroy();
   const ctx = document.getElementById("returnChart").getContext("2d");
   chartInstance = new Chart(ctx, {
@@ -576,37 +584,84 @@ function renderResults(d){
       responsive: true,
       interaction: { mode: "index", intersect: false },
       plugins: {
-        legend: {
-          labels: { color: "#9a9080", font: { family: "DM Mono", size: 11 } }
-        },
+        legend: { labels: { color: "#9a9080", font: { family: "DM Mono", size: 11 } } },
         tooltip: {
           backgroundColor: "#1e1b17",
           borderColor: "rgba(255,255,255,0.07)",
           borderWidth: 1,
           titleColor: "#f0ece4",
           bodyColor: "#9a9080",
-          callbacks: {
-            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%`
-          }
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%` }
         }
       },
       scales: {
-        x: {
-          ticks: { color: "#5a5248", font: { family: "DM Mono", size: 10 }, maxTicksLimit: 8 },
-          grid:  { color: "rgba(255,255,255,0.04)" }
-        },
-        y: {
-          ticks: {
-            color: "#5a5248", font: { family: "DM Mono", size: 10 },
-            callback: v => v.toFixed(0) + "%"
-          },
-          grid: { color: "rgba(255,255,255,0.04)" }
-        }
+        x: { ticks: { color: "#5a5248", font: { family: "DM Mono", size: 10 }, maxTicksLimit: 8 }, grid: { color: "rgba(255,255,255,0.04)" } },
+        y: { ticks: { color: "#5a5248", font: { family: "DM Mono", size: 10 }, callback: v => v.toFixed(0) + "%" }, grid: { color: "rgba(255,255,255,0.04)" } }
       }
     }
   });
 
   document.getElementById("dash-results").style.display = "block";
+}
+
+function buildInsights(d){
+  const won       = d.strategy_return > d.bh_return;
+  const noTrades  = d.trade_count === 0;
+  const fewTrades = d.trade_count > 0 && d.trade_count < 10;
+  const stratPos  = d.strategy_return > 0;
+  const gap       = Math.abs(d.outperformance);
+  const GOLD      = "#c9a84c";
+  const GREEN     = "#22c55e";
+  const RED       = "#f87171";
+  const DIM       = "#8a6e2e";
+
+  // ── No signal fired ────────────────────────────────────────────────────────
+  if(noTrades) return [
+    { color: DIM,   title: "No Entry Signal Triggered",
+      body: `The strategy never entered ${d.symbol} — price never broke above the 20-day high while simultaneously above both 50MA and 200MA. All 3 conditions must align.` },
+    { color: DIM,   title: "Trend Confirmation Required",
+      body: "Livermore insisted on waiting for the market to confirm his thesis. Staying out entirely is not failure — it is discipline in action." },
+    { color: DIM,   title: "Try a Wider Date Range",
+      body: "A longer period gives the strategy more opportunity to find confirmed breakout conditions. Try extending your start date further back." },
+    { color: DIM,   title: "Or Try a Different Stock",
+      body: "Some stocks trend more cleanly than others. NVDA, AAPL, and MSFT typically produce more entry signals over multi-year periods." },
+  ];
+
+  // ── Strategy won ───────────────────────────────────────────────────────────
+  if(won) return [
+    { color: GREEN, title: `Strategy Won by +${gap.toFixed(1)}%`,
+      body: `Livermore's breakout rules outperformed buy-and-hold on ${d.symbol} — confirming that disciplined trend-following can beat passive holding in the right conditions.` },
+    { color: GREEN, title: "Breakout Entry Worked",
+      body: `Entering only on confirmed 20-day highs above both MAs filtered out false starts and positioned the strategy at the beginning of sustained moves.` },
+    { color: GOLD,  title: `${d.trade_count} Trades Over the Period`,
+      body: "Active trading was not constant — the strategy waited patiently for confirmed signals, which is exactly what Livermore preached." },
+    { color: GOLD,  title: "Exit Discipline Protected Capital",
+      body: "Exiting on 20-day low breaks prevented large drawdowns by locking in gains and cutting losses before they became catastrophic." },
+  ];
+
+  // ── Strategy lost but still profitable ────────────────────────────────────
+  if(!won && stratPos) return [
+    { color: GOLD,  title: `+${d.strategy_return.toFixed(1)}% — Profitable but Behind`,
+      body: `The strategy made money on ${d.symbol} but buy-and-hold returned more. This often happens on parabolic stocks that correct sharply but ultimately recover to new highs.` },
+    { color: RED,   title: `Buy-and-Hold Won by ${gap.toFixed(1)}%`,
+      body: "Passive holding outperforms trend-following when a stock has violent corrections followed by even stronger recoveries — the strategy exits the dip but may re-enter later at higher prices." },
+    { color: GOLD,  title: "When Livermore's Strategy Shines",
+      body: "Trend-following works best on stocks with steady, persistent advances and fewer violent snapback rallies. Try MSFT or AAPL for a cleaner comparison." },
+    { color: GOLD,  title: `${d.trade_count} Entry/Exit Cycles`,
+      body: "Each trade cycle represents the strategy responding to the tape — entering on confirmed strength, exiting when support broke. The rules were followed correctly." },
+  ];
+
+  // ── Strategy lost and negative return ─────────────────────────────────────
+  return [
+    { color: RED,   title: "Strategy Returned Negative",
+      body: `${d.symbol} during this period saw conditions where the strategy entered on breakouts that subsequently failed — a choppy, range-bound market is the hardest environment for trend-following.` },
+    { color: RED,   title: `Buy-and-Hold Won by ${gap.toFixed(1)}%`,
+      body: "In strongly trending markets with violent corrections, passive holding absorbs the dips that the strategy exited — and benefits from recoveries without re-entry costs." },
+    { color: GOLD,  title: "Livermore Knew This Limitation",
+      body: "\"There is a time to go long, a time to go short, and a time to go fishing.\" Choppy, trendless markets were when Livermore stood aside entirely." },
+    { color: DIM,   title: "Try a Different Period",
+      body: "The same strategy on the same stock can behave very differently across different time periods. Try 2023–2025 or 2020–2022 to see how conditions affected results." },
+  ];
 }
 </script>
 </body>
