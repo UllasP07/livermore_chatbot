@@ -4,6 +4,7 @@ Start command: gunicorn app:app --bind 0.0.0.0:7860 --timeout 120 --workers 1 --
 """
 
 import os
+import numpy as np                                                    
 import pandas as pd
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -14,6 +15,8 @@ from langchain_core.documents import Document
 from groq import Groq
 from dotenv import load_dotenv
 import yfinance as yf
+from sklearn.feature_extraction.text import TfidfVectorizer         
+from sklearn.metrics.pairwise import cosine_similarity                
 
 load_dotenv()
 
@@ -22,6 +25,9 @@ EMBED_MODEL = "sentence-transformers/paraphrase-MiniLM-L6-v2"
 GROQ_MODEL  = "llama-3.3-70b-versatile"
 FAISS_PATH  = "faiss_index"
 TOP_K       = 3
+HYBRID_POOL = 10    
+SEMANTIC_W  = 0.6    
+TFIDF_W     = 0.4    
 PORT        = int(os.environ.get("PORT", 7860))
 
 app = Flask(__name__)
@@ -46,7 +52,42 @@ else:
     vector_db.save_local(FAISS_PATH)
     print(f"Index built — {len(chunks)} chunks.", flush=True)
 
+# build TF-IDF matrix over all questions at startup (fast, <1s)
+print("Building TF-IDF index...", flush=True)
+tfidf_vectorizer = TfidfVectorizer(stop_words="english", ngram_range=(1, 2))
+tfidf_matrix     = tfidf_vectorizer.fit_transform(df["Questions"].fillna("").tolist())
+print(f"TF-IDF ready — {tfidf_matrix.shape[0]} rows, {tfidf_matrix.shape[1]} features.", flush=True)
+ 
+
 print("Flask app ready — routes active.", flush=True)
+
+# hybrid re-ranker helper
+def hybrid_rerank(query, faiss_docs):
+    # Step 1 — deduplicate by source_question, keep first occurrence
+    seen = set()
+    unique_docs = []
+    for doc in faiss_docs:
+        key = doc.metadata.get("question", doc.page_content[:80])
+        if key not in seen:
+            seen.add(key)
+            unique_docs.append(doc)
+
+    if not unique_docs:
+        return faiss_docs
+
+    # Step 2 — score the unique candidates
+    query_tfidf = tfidf_vectorizer.transform([query])
+    scored = []
+    for rank, doc in enumerate(unique_docs):
+        semantic_score   = 1.0 - (rank / len(unique_docs))
+        source_question  = doc.metadata.get("question", doc.page_content)
+        doc_tfidf        = tfidf_vectorizer.transform([source_question])
+        tfidf_score      = float(cosine_similarity(query_tfidf, doc_tfidf)[0][0])
+        final_score      = SEMANTIC_W * semantic_score + TFIDF_W * tfidf_score
+        scored.append((final_score, doc))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [doc for _, doc in scored[:TOP_K]]
 
 @app.route("/")
 def health():
@@ -54,7 +95,13 @@ def health():
 
 @app.route("/stats")
 def stats():
-    return jsonify({"total_pairs": len(df), "labels": df["Label"].value_counts().to_dict(), "chunks": vector_db.index.ntotal, "model": GROQ_MODEL})
+    return jsonify({
+        "total_pairs": len(df),
+        "labels":      df["Label"].value_counts().to_dict(),
+        "chunks":      vector_db.index.ntotal,
+        "model":       GROQ_MODEL,
+        "retrieval":   f"Hybrid (FAISS {int(SEMANTIC_W*100)}% + TF-IDF {int(TFIDF_W*100)}%)"  # NEW
+    })
 
 @app.route("/ask", methods=["POST"])
 def ask():
@@ -65,7 +112,9 @@ def ask():
     api_key = os.environ.get("GROQ_API_KEY") or (data.get("api_key") or "").strip()
     if not api_key:
         return jsonify({"error": "Groq API key not configured."}), 400
-    retrieved = vector_db.similarity_search(query, k=TOP_K)
+
+    candidates = vector_db.similarity_search(query, k=HYBRID_POOL)
+    retrieved  = hybrid_rerank(query, candidates)
     context   = "\n\n".join([doc.page_content for doc in retrieved])
     labels    = list({doc.metadata.get("label", "") for doc in retrieved})
     prompt = f"""You are a Jesse Livermore trading expert chatbot trained on "Reminiscences of a Stock Operator".
