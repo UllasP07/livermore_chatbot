@@ -207,21 +207,39 @@ aside::-webkit-scrollbar-thumb{background:var(--bg3)}
     <div class="sidebar-section">
       <div class="sec-title">Dataset Stats</div>
       <div class="stats-grid">
-        <div class="stat-card"><div class="stat-num">15000</div><div class="stat-lbl">Q&amp;A Pairs</div></div>
+        <div class="stat-card"><div class="stat-num">17,811</div><div class="stat-lbl">Q&amp;A Pairs</div></div>
         <div class="stat-card"><div class="stat-num">6</div><div class="stat-lbl">Labels</div></div>
-        <div class="stat-card"><div class="stat-num">2500</div><div class="stat-lbl">Per Label</div></div>
+        <div class="stat-card"><div class="stat-num">~2,970</div><div class="stat-lbl">Avg / Label</div></div>
         <div class="stat-card"><div class="stat-num" id="chunk-count">—</div><div class="stat-lbl">Chunks</div></div>
       </div>
     </div>
     <div class="sidebar-section">
       <div class="sec-title">Labels Covered</div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px">
-        <span class="ltag">Personal Life</span>
-        <span class="ltag">Strategy</span>
-        <span class="ltag">Timing</span>
-        <span class="ltag">Risk Mgmt</span>
-        <span class="ltag">Adaptability</span>
-        <span class="ltag">Psychology</span>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ltag">Personal Life</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">3,274</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ltag">Risk Mgmt</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">3,014</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ltag">Strategy</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">2,998</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ltag">Adaptability</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">2,941</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ltag">Timing</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">2,829</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ltag">Psychology</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">2,755</span>
+        </div>
       </div>
     </div>
     <div class="sidebar-section">
@@ -242,7 +260,7 @@ aside::-webkit-scrollbar-thumb{background:var(--bg3)}
       <div id="welcome">
         <div class="welcome-logo">&ldquo;</div>
         <h1>Ask Jesse Livermore</h1>
-        <p>Trained on <em>Reminiscences of a Stock Operator</em> — 15,000 curated Q&amp;A pairs covering Livermore's complete trading philosophy.</p>
+        <p>Trained on <em>Reminiscences of a Stock Operator</em> and <em>How to Trade in Stocks</em> — 17,811 curated Q&amp;A pairs covering Livermore's complete trading philosophy.</p>
         <div class="welcome-quote">"It was never the thinking that made me money — it was the sitting tight."</div>
         <p style="font-size:12px;color:var(--text-faint);margin-top:6px">Paste your backend URL above, then ask a question.</p>
       </div>
