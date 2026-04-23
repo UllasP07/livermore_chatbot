@@ -22,7 +22,7 @@ from backtest_engine import run_comparison
 
 load_dotenv()
 
-CSV_PATH    = "Livermore_QA_Dataset_Extended.csv"
+CSV_PATH    = "final_dataset.csv"
 EMBED_MODEL = "sentence-transformers/paraphrase-MiniLM-L6-v2"
 GROQ_MODEL  = "llama-3.3-70b-versatile"
 FAISS_PATH  = "faiss_index"
