@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Research Lab — Jesse Livermore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@300;400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg-app:      #0c0e14;
+  --bg-sidebar:  #131620;
+  --bg-surface:  #1c2130;
+  --border:      #2a3040;
+  --border-light:#3b4358;
+  --text-main:   #f8fafc;
+  --text-muted:  #94a3b8;
+  --text-faint:  #64748b;
+  --primary:     #d4af37;
+  --danger:      #ef4444;
+  --success:     #10b981;
+  --blue:        #3b82f6;
+  --serif:       'Playfair Display', Georgia, serif;
+  --mono:        'DM Mono', monospace;
+  --sans:        'Inter', system-ui, sans-serif;
+  --radius-sm:   6px;
+  --radius:      12px;
+  --radius-lg:   16px;
+  --shadow-sm:   0 4px 12px rgba(0,0,0,0.15);
+  --shadow-md:   0 8px 24px rgba(0,0,0,0.3);
+}
+[data-theme="light"] {
+  --bg-app:      #f1f5f9;
+  --bg-sidebar:  #ffffff;
+  --bg-surface:  #ffffff;
+  --border:      #e2e8f0;
+  --border-light:#cbd5e1;
+  --text-main:   #0f172a;
+  --text-muted:  #475569;
+  --text-faint:  #94a3b8;
+  --primary:     #b48600;
+  --shadow-sm:   0 2px 8px rgba(0,0,0,0.04);
+  --shadow-md:   0 8px 24px rgba(0,0,0,0.08);
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html,body { background:var(--bg-app); color:var(--text-main); font-family:var(--sans); font-size:14px; line-height:1.5; margin:0; padding:0; }
+
+.page { max-width:1080px; margin:0 auto; padding:36px 40px 60px 56px; display:flex; flex-direction:column; gap:32px; }
+/* ── Section headers ── */
+.sec-head { border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:4px; }
+.sec-head h2 { font-family:var(--serif); font-size:28px; font-weight:600; color:var(--text-main); margin-bottom:6px; letter-spacing:-0.3px; }
+.sec-head p  { font-size:14px; color:var(--text-main); line-height:1.6; max-width:720px; opacity:0.75; }
+
+/* ── Hypothesis card ── */
+.hyp-card {
+  background:var(--bg-sidebar);
+  border:1px solid var(--border);
+  border-left:3px solid var(--primary);
+  border-radius:var(--radius-lg);
+  padding:22px 26px;
+  box-shadow:var(--shadow-sm);
+}
+.hyp-label { font-family:var(--mono); font-size:11px; color:var(--primary); text-transform:uppercase; letter-spacing:.12em; margin-bottom:10px; font-weight:600; }
+.hyp-text  { font-size:14px; color:var(--text-main); line-height:1.8; opacity:0.85; }
+.hyp-text em { color:var(--primary); font-style:normal; font-weight:600; }
+
+
+/* ── Controls bar ── */
+.controls-bar {
+  background:var(--bg-sidebar);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:20px 24px;
+  display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;
+  box-shadow:var(--shadow-sm);
+}
+.ctrl { display:flex; flex-direction:column; gap:6px; }
+.ctrl label { font-family:var(--mono); font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.1em; font-weight:500; }
+.ctrl input, .ctrl select {
+  background:var(--bg-app); border:1px solid var(--border);
+  color:var(--text-main); padding:0 14px; height:42px;
+  border-radius:var(--radius-sm); font-family:var(--sans); font-size:13px;
+  font-weight:500; outline:none; transition:.2s;
+}
+.ctrl input:focus, .ctrl select:focus { border-color:var(--border-light); }
+.ctrl select option { background:var(--bg-surface); }
+
+#run-btn {
+  background:var(--bg-surface); border:1px solid var(--border);
+  color:var(--text-main); padding:0 26px; height:42px;
+  border-radius:var(--radius-sm); font-family:var(--sans);
+  font-weight:600; font-size:13px; cursor:pointer; transition:.2s;
+}
+#run-btn:hover:not(:disabled) { border-color:var(--primary); color:var(--primary); }
+#run-btn:disabled { opacity:.4; cursor:not-allowed; }
+.run-status { font-family:var(--mono); font-size:12px; color:var(--text-faint); display:flex; align-items:center; gap:8px; }
+.spinner { width:12px; height:12px; border:2px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite; display:none; }
+.spinner.on { display:block; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── 2x2 Matrix ── */
+.matrix-wrap { display:flex; flex-direction:column; gap:2px; }
+.matrix-col-labels { display:grid; grid-template-columns:80px 1fr 1fr; gap:2px; }
+.matrix-col-lbl {
+  background:var(--bg-sidebar); border:1px solid var(--border);
+  text-align:center; padding:9px 8px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--text-muted); font-weight:500;
+}
+.matrix-col-lbl:first-child { background:transparent; border:none; }
+.matrix-rows { display:grid; grid-template-columns:80px 1fr 1fr; gap:2px; }
+.matrix-row-lbl {
+  background:var(--bg-sidebar); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  writing-mode:vertical-rl; transform:rotate(180deg);
+  font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--text-faint); padding:10px 4px;
+}
+.quad {
+  background:var(--bg-sidebar); border:1px solid var(--border);
+  padding:18px;
+}
+.quad-head { display:flex; align-items:center; gap:8px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+.quad-accent { width:3px; height:20px; border-radius:2px; flex-shrink:0; }
+.quad-title { font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-main); font-weight:500; }
+.drop-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.drop-num { font-family:var(--mono); font-size:12px; color:var(--text-muted); width:14px; flex-shrink:0; font-weight:600; }
+.drop-row select { flex:1; min-width:0; height:36px; font-size:12px; }
+.quad-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
+.qmet { background:var(--bg-surface); border:1px solid var(--border); padding:10px 8px; border-radius:var(--radius-sm); text-align:center; }
+.qmet .v { font-size:14px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; }
+.qmet .k { font-family:var(--mono); font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; margin-top:5px; font-weight:500; }
+.v.pos  { color:var(--success); }
+.v.neg  { color:var(--danger); }
+.v.gold { color:var(--primary); }
+.v.neu  { color:var(--text-main); }
+.v.dim  { color:var(--text-faint); }
+
+/* ── Chart cards ── */
+.chart-card {
+  background:var(--bg-sidebar); border:1px solid var(--border);
+  border-radius:var(--radius-lg); padding:26px;
+  box-shadow:var(--shadow-sm);
+}
+.chart-card-sub { font-family:var(--mono); font-size:11px; color:var(--text-faint); margin-bottom:18px; line-height:1.5; }
+
+/* ── Curves grid ── */
+.curves-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+.curve-card { background:var(--bg-sidebar); border:1px solid var(--border); padding:16px; border-radius:var(--radius); }
+.curve-ticker { font-size:15px; font-weight:700; color:var(--text-main); margin-bottom:3px; }
+.curve-group  { font-family:var(--mono); font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
+.curve-ret    { font-family:var(--mono); font-size:11px; margin-bottom:10px; }
+
+/* ── Verdict ── */
+.verdict-card {
+  background:var(--bg-sidebar); border:1px solid var(--border);
+  border-radius:var(--radius-lg); padding:32px;
+  box-shadow:var(--shadow-sm); display:none;
+}
+.verdict-card.show { display:block; }
+.verdict-corr  { font-family:var(--serif); font-size:48px; font-weight:600; color:var(--primary); line-height:1; margin-bottom:10px; }
+.verdict-title { font-family:var(--serif); font-size:22px; font-weight:600; margin-bottom:12px; }
+.verdict-title.pos { color:var(--success); }
+.verdict-title.neg { color:var(--danger); }
+.verdict-body  { font-size:13px; color:var(--text-muted); line-height:1.8; max-width:680px; margin-bottom:20px; }
+.verdict-quote {
+  font-family:var(--serif); font-style:italic; font-size:13px;
+  color:var(--primary); border-left:2px solid var(--primary);
+  padding:8px 16px; opacity:.8; line-height:1.8;
+}
+
+/* ── Hidden until results load ── */
+.results-section { display:none; }
+.results-section.show { display:flex; flex-direction:column; gap:32px; }
+
+@media(max-width:800px) {
+  .matrix-col-labels { grid-template-columns:50px 1fr 1fr; }
+  .matrix-rows { grid-template-columns:50px 1fr 1fr; }
+  .curves-grid { grid-template-columns:repeat(2,1fr); }
+  .hyp-layers  { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- 1. The Strategy -->
+  <div>
+    <div class="sec-head">
+      <h2>The Strategy</h2>
+      <p>Jesse Livermore never analyzed balance sheets. He read price. His breakout rules — enter on 20-day highs confirmed by 50MA and 200MA, exit on 20-day low breaks — have been running financial markets for over a century. We test whether they still work, and where.</p>
+    </div>
+
+    <div class="hyp-card">
+      <div class="hyp-label">Research Hypothesis</div>
+      <div class="hyp-text">Livermore's alpha is driven by <em>human emotional cycles</em> in price — not by what a company does. If true, the strategy should produce higher <em>Sharpe ratios</em> on <em>high-volatility stocks</em>, regardless of sector, because fear and greed amplify breakout signals.</div>
+    </div>
+  </div>
+
+
+
+  <!-- 2. Pick Your Stocks -->
+  <div>
+    <div class="sec-head">
+      <h2>Pick Your Stocks</h2>
+      <p>Select two stocks per quadrant. Defaults are our research choices — change any to test your own hypothesis.</p>
+    </div>
+
+    <div class="controls-bar">
+      <div class="ctrl">
+        <label>Start Date</label>
+        <input type="date" id="rl-start" value="2020-01-01"/>
+      </div>
+      <div class="ctrl">
+        <label>End Date</label>
+        <input type="date" id="rl-end" value="2025-01-01"/>
+      </div>
+      <button id="run-btn" onclick="runComparison()">Run Comparison ↗</button>
+      <div class="run-status">
+        <div class="spinner" id="spinner"></div>
+        <span id="status-txt"></span>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+
+    <div class="matrix-wrap">
+      <div class="matrix-col-labels">
+        <div class="matrix-col-lbl"></div>
+        <div class="matrix-col-lbl">High Volatility</div>
+        <div class="matrix-col-lbl">Low Volatility</div>
+      </div>
+      <div class="matrix-rows">
+        <div class="matrix-row-lbl">Industrial</div>
+
+        <!-- Q1: Industrial High -->
+        <div class="quad">
+          <div class="quad-head">
+            <div class="quad-accent" style="background:#d4af37"></div>
+            <div class="quad-title">Industrial / High Volatility</div>
+          </div>
+          <div class="drop-row"><div class="drop-num">1</div>
+            <select id="s1"><option value="CAT">CAT — Caterpillar</option><option value="XOM">XOM — ExxonMobil</option><option value="FCX">FCX — Freeport-McMoRan</option><option value="OXY">OXY — Occidental</option><option value="CLF">CLF — Cleveland-Cliffs</option></select>
+          </div>
+          <div class="drop-row"><div class="drop-num">2</div>
+            <select id="s2"><option value="XOM">XOM — ExxonMobil</option><option value="CAT">CAT — Caterpillar</option><option value="FCX">FCX — Freeport-McMoRan</option><option value="OXY">OXY — Occidental</option><option value="CLF">CLF — Cleveland-Cliffs</option></select>
+          </div>
+          <div class="quad-metrics" id="m1">
+            <div class="qmet"><div class="v dim">—</div><div class="k">Alpha</div></div>
+            <div class="qmet"><div class="v dim">—</div><div class="k">Sharpe</div></div>
+            <div class="qmet"><div class="v dim">—</div><div class="k">Max DD</div></div>
+            <div class="qmet"><div class="v dim">—</div><div class="k">Avg Vol</div></div>
+          </div>
+        </div>
+
+        <!-- Q2: Industrial Low -->
+        <div class="quad">
+          <div class="quad-head">
+            <div class="quad-accent" style="background:#3b82f6"></div>
+            <div class="quad-title">Industrial / Low Volatility</div>
+          </div>
+          <div class="drop-row"><div class="drop-num">1</div>
+            <select id="s3"><option value="JNJ">JNJ — Johnson &amp; Johnson</option><option value="KO">KO — Coca-Cola</option><option value="PG">PG — Procter &amp; Gamble</option><option value="WMT">WMT — Walmart</option><option value="MCD">MCD — McDonald's</option></select>
+          </div>
+          <div class="drop-row"><div class="drop-num">2</div>
+            <select id="s4"><option value="KO">KO — Coca-Cola</option><option value="JNJ">JNJ — Johnson &amp; Johnson</option><option value="PG">PG — Procter &amp; Gamble</option><option value="WMT">WMT — Walmart</option><option value="MCD">MCD — McDonald's</option></select>
+          </div>
+          <div class="quad-metrics" id="m2">
+            <div class="qmet"><div class="v dim">—</div><div class="k">Alpha</div></div>
+            <div class="qmet"><div class="v dim">—</div><div class="k">Sharpe</div></div>
+            <div class="qmet"><div class="v dim">—</div><div class="k">Max DD</div></div>
+            <div class="qmet"><div class="v dim">—</div><div class="k">Avg Vol</div></div>
+          </div>
+        </div>
+
+        <div class="matrix-row-lbl">Tech</div>
+
+        <!-- Q3: Tech High -->
+        <div class="quad">
+          <div class="quad-head">
+            <div class="quad-accent" style="background:#ef4444"></div>
+            <div class="quad-title">Tech / High Volatility</div>
+          </div>
+          <div class="drop-row"><div class="drop-num">1</div>
+            <select id="s5"><option value="NVDA">NVDA — NVIDIA</option><option value="TSLA">TSLA — Tesla</option><option value="META">META — Meta</option><option value="AMD">AMD — AMD</option><option value="COIN">COIN — Coinbase</option></select>
+          </div>
+          <div class="drop-row"><div class="drop-num">2</div>
+            <select id="s6"><option value="TSLA">TSLA — Tesla</option><option value="NVDA">NVDA — NVIDIA</option><option value="META">META — Meta</option><option value="AMD">AMD — AMD</option><option value="COIN">COIN — Coinbase</option></select>
+          </div>
+          <div class="quad-metrics" id="m3">
+            <div class="qmet"><div class="v dim">—</div><div class="k">Alpha</div></div>
+            <div class="qmet"><div class="v dim">—</div><div class="k">Sharpe</div></div>
+            <div class="qmet"><div class="v dim">—</div><div class="k">Max DD</div></div>
+            <div class="qmet"><div class="v dim">—</div><div class="k">Avg Vol</div></div>
+          </div>
+        </div>
+
+        <!-- Q4: Tech Low -->
+        <div class="quad">
+          <div class="quad-head">
+            <div class="quad-accent" style="background:#10b981"></div>
+            <div class="quad-title">Tech / Low Volatility</div>
+          </div>
+          <div class="drop-row"><div class="drop-num">1</div>
+            <select id="s7"><option value="MSFT">MSFT — Microsoft</option><option value="AAPL">AAPL — Apple</option><option value="GOOGL">GOOGL — Alphabet</option><option value="ORCL">ORCL — Oracle</option><option value="IBM">IBM — IBM</option></select>
+          </div>
+          <div class="drop-row"><div class="drop-num">2</div>
+            <select id="s8"><option value="AAPL">AAPL — Apple</option><option value="MSFT">MSFT — Microsoft</option><option value="GOOGL">GOOGL — Alphabet</option><option value="ORCL">ORCL — Oracle</option><option value="IBM">IBM — IBM</option></select>
+          </div>
+          <div class="quad-metrics" id="m4">
+            <div class="qmet"><div class="v dim">—</div><div class="k">Alpha</div></div>
+            <div class="qmet"><div class="v dim">—</div><div class="k">Sharpe</div></div>
+            <div class="qmet"><div class="v dim">—</div><div class="k">Max DD</div></div>
+            <div class="qmet"><div class="v dim">—</div><div class="k">Avg Vol</div></div>
+          </div>
+        </div>
+
+      </div><!-- matrix-rows -->
+    </div><!-- matrix-wrap -->
+  </div>
+
+  <!-- Results (hidden until run) -->
+  <div class="results-section" id="results">
+
+    <!-- 3. Which Stocks Fit Livermore Best? -->
+    <div>
+      <div class="sec-head">
+        <h2>Which Stocks Fit Livermore Best?</h2>
+        <p>Each dot is one stock, positioned by its historical volatility and Livermore Sharpe ratio. If the hypothesis holds, all dots should drift toward the top-right. The gold trend line shows the direction of the relationship.</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-sub">X-axis: Historical volatility (σ) — Y-axis: Livermore strategy Sharpe ratio — Trend line: gold dashed</div>
+        <div style="position:relative;height:340px">
+          <canvas id="scatter-chart" role="img" aria-label="Scatter plot volatility vs Sharpe ratio"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Strategy vs. Buy & Hold -->
+    <div>
+      <div class="sec-head">
+        <h2>Strategy vs. Buy &amp; Hold</h2>
+        <p>Buy &amp; Hold means buying on day one and holding until the end date without any trades. This is the baseline — the minimum return you could get with zero effort. Livermore's strategy must beat this to justify the complexity.</p>
+      </div>
+      <div class="curves-grid" id="curves-grid"></div>
+    </div>
+
+    <!-- 5. The Verdict -->
+    <div>
+      <div class="sec-head">
+        <h2>The Verdict</h2>
+        <p>Pearson correlation (rho) between average historical volatility and Sharpe ratio across the four quadrants. A value above +0.3 supports the hypothesis.</p>
+      </div>
+      <div class="verdict-card show" id="verdict-card">
+        <div class="verdict-corr" id="verdict-corr">—</div>
+        <div class="verdict-title" id="verdict-title">—</div>
+        <div class="verdict-body"  id="verdict-body">—</div>
+        <div class="verdict-quote" id="verdict-quote">—</div>
+      </div>
+    </div>
+
+  </div><!-- results-section -->
+
+</div><!-- page -->
+
+<script>
+const BACKEND = "https://Ullas07-livermore-chatbot.hf.space";
+
+const QUADS = [
+  { ids:["s1","s2"], metId:"m1", color:"#d4af37", label:"Industrial / High Vol" },
+  { ids:["s3","s4"], metId:"m2", color:"#3b82f6", label:"Industrial / Low Vol"  },
+  { ids:["s5","s6"], metId:"m3", color:"#ef4444", label:"Tech / High Vol"       },
+  { ids:["s7","s8"], metId:"m4", color:"#10b981", label:"Tech / Low Vol"        },
+];
+
+const QUOTES = {
+  supported: '"The market does not beat them. They beat themselves, because though they have brains they cannot sit still." — Jesse Livermore. High-volatility stocks amplify the emotional cycles that his breakout signals are designed to exploit.',
+  rejected:  '"There is a time for all things, but I did not know it." — Jesse Livermore. Even a strategy built for volatility has its limits — markets and centuries change the rules of the game.',
+};
+
+let scatterChart = null;
+const miniCharts = {};
+
+/* ── Metric helpers derived from cumulative % series ── */
+function sharpe(s){
+  const a=s.map(v=>v/100), d=[];
+  for(let i=1;i<a.length;i++) d.push((a[i]-a[i-1])/(1+a[i-1]+1e-9));
+  if(d.length<2) return 0;
+  const m=d.reduce((x,v)=>x+v,0)/d.length;
+  const std=Math.sqrt(d.reduce((x,v)=>x+(v-m)**2,0)/d.length);
+  return std>0 ? +(m/std*Math.sqrt(252)).toFixed(3) : 0;
+}
+function maxdd(s){
+  let peak=s[0]||0, dd=0;
+  for(const v of s){ if(v>peak)peak=v; dd=Math.min(dd,v-peak); }
+  return +dd.toFixed(1);
+}
+function vol(s){
+  const a=s.map(v=>v/100), d=[];
+  for(let i=1;i<a.length;i++) d.push((a[i]-a[i-1])/(1+a[i-1]+1e-9));
+  if(d.length<2) return 0;
+  const m=d.reduce((x,v)=>x+v,0)/d.length;
+  const std=Math.sqrt(d.reduce((x,v)=>x+(v-m)**2,0)/d.length);
+  return +(std*Math.sqrt(252)*100).toFixed(1);
+}
+
+async function fetchOne(symbol, start, end){
+  const r = await fetch(BACKEND+"/backtest",{
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({symbol, start_date:start, end_date:end})
+  });
+  const d = await r.json();
+  if(!r.ok||d.error) return null;
+  const st=d.strategy_series||[], bh=d.bh_series||[];
+  return {
+    ticker: symbol,
+    stratReturn: d.strategy_return,
+    bhReturn:    d.bh_return,
+    outperform:  d.outperformance,
+    trades:      d.trade_count,
+    sharpe:  sharpe(st),
+    maxdd:   maxdd(st),
+    vol:     vol(bh),
+    chart:{ dates:d.dates, strategy:st, bh:bh }
+  };
+}
+
+function fillMetrics(metId, stocks, color){
+  const el = document.getElementById(metId);
+  if(!stocks.length){ return; }
+  const aOut = avg(stocks,"outperform"), aSh = avg(stocks,"sharpe");
+  const aDD  = avg(stocks,"maxdd"),     aVol = avg(stocks,"vol");
+  el.innerHTML = `
+    <div class="qmet"><div class="v ${aOut>=0?"pos":"neg"}">${fmt(aOut,1,true)}%</div><div class="k">Alpha</div></div>
+    <div class="qmet"><div class="v ${aSh>=0.5?"pos":aSh>=0?"gold":"neg"}">${aSh.toFixed(3)}</div><div class="k">Sharpe</div></div>
+    <div class="qmet"><div class="v neg">${aDD.toFixed(1)}%</div><div class="k">Max DD</div></div>
+    <div class="qmet"><div class="v neu">${aVol.toFixed(1)}%</div><div class="k">Avg Vol</div></div>`;
+}
+
+function avg(arr, key){ return arr.reduce((a,s)=>a+s[key],0)/arr.length; }
+function fmt(v,d,sign){ return (sign&&v>=0?"+":"")+v.toFixed(d); }
+
+async function runComparison(){
+  const start = document.getElementById("rl-start").value;
+  const end   = document.getElementById("rl-end").value;
+  const btn   = document.getElementById("run-btn");
+  const sp    = document.getElementById("spinner");
+  const st    = document.getElementById("status-txt");
+
+  btn.disabled=true; sp.classList.add("on");
+
+  const allStocks = [];
+  const groupData = [];
+
+  for(const q of QUADS){
+    const tickers = q.ids.map(id=>document.getElementById(id).value);
+    st.textContent = `Running ${q.label}...`;
+    const results = await Promise.all(tickers.map(t=>fetchOne(t,start,end)));
+    const valid = results.filter(Boolean);
+    valid.forEach(s=>{ s.color=q.color; s.groupLabel=q.label; allStocks.push(s); });
+    fillMetrics(q.metId, valid, q.color);
+    groupData.push({ ...q, stocks:valid });
+  }
+
+  renderScatter(allStocks);
+  renderCurves(allStocks);
+  renderVerdict(groupData);
+
+  document.getElementById("results").classList.add("show");
+  btn.disabled=false; sp.classList.remove("on");
+  st.textContent = "Complete";
+  setTimeout(()=>st.textContent="", 2000);
+}
+
+function renderScatter(stocks){
+  if(scatterChart){ scatterChart.destroy(); scatterChart=null; }
+  const isDark = !document.documentElement.getAttribute("data-theme");
+  const gridC  = isDark?"rgba(255,255,255,0.07)":"rgba(0,0,0,0.07)";
+  const divC   = isDark?"rgba(255,255,255,0.22)":"rgba(0,0,0,0.2)";
+  const txtC   = isDark?"#94a3b8":"#475569";
+  const dotTxt = isDark?"#f8fafc":"#0f172a";
+
+  scatterChart = new Chart(document.getElementById("scatter-chart").getContext("2d"),{
+    type:"scatter",
+    data:{ datasets: stocks.map(s=>({
+      label:s.ticker, data:[{x:s.vol,y:s.sharpe}],
+      backgroundColor:s.color+"bb", borderColor:s.color,
+      borderWidth:1.5, pointRadius:20, pointHoverRadius:22
+    }))},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:{duration:600},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:isDark?"#1c2130":"#fff",
+          borderColor:isDark?"#3b4358":"#e2e8f0", borderWidth:1,
+          titleColor:isDark?"#f8fafc":"#0f172a",
+          bodyColor:isDark?"#94a3b8":"#475569",
+          padding:12, cornerRadius:8,
+          callbacks:{ label: ctx=>{
+            const s=stocks[ctx.datasetIndex];
+            return[`${s.ticker}  (${s.groupLabel})`,`Volatility: ${s.vol}%   Sharpe: ${s.sharpe}`];
+          }}
+        }
+      },
+      scales:{
+        x:{ title:{display:true,text:"Historical Volatility  (%)",color:txtC,font:{family:"Inter",size:11}},
+            min:0, max:Math.max(...stocks.map(s=>s.vol))*1.25,
+            grid:{color:gridC}, ticks:{color:txtC,font:{family:"Inter",size:11},callback:v=>v+"%"} },
+        y:{ title:{display:true,text:"Livermore Strategy Sharpe Ratio",color:txtC,font:{family:"Inter",size:11}},
+            grid:{color:gridC}, ticks:{color:txtC,font:{family:"Inter",size:11}} }
+      }
+    },
+    plugins:[{
+      id:"rlQ",
+      afterDraw(chart){
+        const {ctx:cx,chartArea:ca,scales:{x,y}}=chart;
+        const vs=stocks.map(s=>s.vol), ss=stocks.map(s=>s.sharpe);
+        const mv=(Math.max(...vs)+Math.min(...vs))/2, ms=(Math.max(...ss)+Math.min(...ss))/2;
+        const px=x.getPixelForValue(mv), py=y.getPixelForValue(ms);
+
+        cx.save();
+        cx.strokeStyle=divC; cx.lineWidth=1; cx.setLineDash([5,4]);
+        cx.beginPath(); cx.moveTo(px,ca.top);    cx.lineTo(px,ca.bottom); cx.stroke();
+        cx.beginPath(); cx.moveTo(ca.left,py);   cx.lineTo(ca.right,py);  cx.stroke();
+        cx.setLineDash([]);
+
+        // trend line
+        const n=stocks.length, mvv=vs.reduce((a,v)=>a+v,0)/n, mvs=ss.reduce((a,v)=>a+v,0)/n;
+        const num=stocks.reduce((a,s)=>a+(s.vol-mvv)*(s.sharpe-mvs),0);
+        const den=stocks.reduce((a,s)=>a+(s.vol-mvv)**2,0);
+        if(den>0){
+          const sl=num/den, ic=mvs-sl*mvv;
+          const x0=0, x1=Math.max(...vs)*1.2;
+          cx.beginPath(); cx.strokeStyle="rgba(212,175,55,0.55)"; cx.lineWidth=2;
+          cx.lineWidth=2; cx.setLineDash([4,4]);
+          cx.moveTo(x.getPixelForValue(x0),y.getPixelForValue(sl*x0+ic));
+          cx.lineTo(x.getPixelForValue(x1),y.getPixelForValue(sl*x1+ic));
+          cx.stroke(); cx.setLineDash([]);
+        }
+
+        // ticker labels inside dots
+        chart.data.datasets.forEach((ds,i)=>{
+          const pt=chart.getDatasetMeta(i).data[0]; if(!pt) return;
+          cx.font="700 11px Inter"; cx.fillStyle=dotTxt; cx.textAlign="center";
+          cx.fillText(stocks[i].ticker, pt.x, pt.y+4);
+        });
+        cx.restore();
+      }
+    }]
+  });
+}
+
+function renderCurves(stocks){
+  Object.values(miniCharts).forEach(c=>c.destroy());
+  const grid = document.getElementById("curves-grid");
+  grid.innerHTML="";
+  const isDark = !document.documentElement.getAttribute("data-theme");
+  const mutedC = isDark?"#64748b":"#94a3b8";
+
+  stocks.forEach(s=>{
+    const id="cv-"+s.ticker;
+    const col = s.outperform>=0 ? "#10b981" : "#ef4444";
+    const card = document.createElement("div");
+    card.className="curve-card";
+    card.innerHTML=`
+      <div class="curve-ticker">${s.ticker}</div>
+      <div class="curve-group">${s.groupLabel}</div>
+      <div class="curve-ret">
+        <span style="color:${col};font-weight:600">Strategy ${fmt(s.stratReturn,1,true)}%</span>
+        <span style="color:var(--text-faint)"> · B&H ${fmt(s.bhReturn,1,true)}%</span>
+      </div>
+      <div style="position:relative;height:72px">
+        <canvas id="${id}" role="img" aria-label="${s.ticker} return chart"></canvas>
+      </div>`;
+    grid.appendChild(card);
+
+    miniCharts[s.ticker] = new Chart(document.getElementById(id).getContext("2d"),{
+      type:"line",
+      data:{ labels:s.chart.dates, datasets:[
+        {data:s.chart.strategy, borderColor:col,   borderWidth:1.5, pointRadius:0, tension:.3, fill:false},
+        {data:s.chart.bh,       borderColor:mutedC, borderWidth:1,  borderDash:[4,3], pointRadius:0, tension:.3, fill:false}
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, animation:false,
+        plugins:{legend:{display:false},tooltip:{enabled:false}},
+        scales:{x:{display:false},y:{display:false}} }
+    });
+  });
+}
+
+function renderVerdict(groupData){
+  const groups = groupData.map(g=>({
+    vol: g.stocks.length ? avg(g.stocks,"vol")    : 0,
+    sh:  g.stocks.length ? avg(g.stocks,"sharpe") : 0,
+  }));
+  const n=groups.length;
+  if(n<3) return;
+  const mv=groups.reduce((a,g)=>a+g.vol,0)/n, ms=groups.reduce((a,g)=>a+g.sh,0)/n;
+  const num=groups.reduce((a,g)=>a+(g.vol-mv)*(g.sh-ms),0);
+  const dv=Math.sqrt(groups.reduce((a,g)=>a+(g.vol-mv)**2,0)/n);
+  const ds=Math.sqrt(groups.reduce((a,g)=>a+(g.sh-ms)**2,0)/n);
+  const corr = (dv>0&&ds>0) ? +(num/n/(dv*ds)).toFixed(3) : 0;
+  const ok = corr > 0.3;
+
+  document.getElementById("verdict-corr").textContent  = "rho = "+(corr>=0?"+":"")+corr;
+  const tv = document.getElementById("verdict-title");
+  tv.textContent = ok
+    ? "Hypothesis supported — volatility drives Livermore alpha"
+    : "Hypothesis not confirmed — volatility alone is not the deciding factor";
+  tv.className = "verdict-title "+(ok?"pos":"neg");
+  document.getElementById("verdict-body").textContent = ok
+    ? "Strong positive correlation between average historical volatility and Sharpe ratio across the four quadrants. High-volatility stocks — both industrial and tech — produce meaningfully better risk-adjusted returns under the Livermore breakout framework. This confirms that the strategy's edge comes from emotional price cycles, not from any specific industry."
+    : "The correlation between volatility and Sharpe ratio is weaker than the hypothesis predicted. This may indicate that sector structure, liquidity conditions, or the specific time period tested played a larger role than raw volatility in determining strategy effectiveness. The results are worth examining across different date ranges.";
+  document.getElementById("verdict-quote").textContent = ok ? QUOTES.supported : QUOTES.rejected;
+}
+</script>
+</body>
+</html>

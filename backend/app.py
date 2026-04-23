@@ -18,6 +18,8 @@ import yfinance as yf
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from backtest_engine import run_comparison
+
 load_dotenv()
 
 CSV_PATH    = "Livermore_QA_Dataset_Extended.csv"
@@ -212,6 +214,15 @@ def backtest():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/compare", methods=["GET"])
+def compare():
+    start  = request.args.get("start", "2020-01-01")
+    end    = request.args.get("end",   "2025-01-01")
+    result = run_comparison(start, end)
+    return jsonify(result)
+
+
 
 
 if __name__ == "__main__":

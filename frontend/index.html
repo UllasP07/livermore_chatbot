@@ -351,6 +351,7 @@ body{background:var(--bg-app);color:var(--text-main);font-family:var(--sans);fon
         <div class="pill-container">
           <button class="pill-btn active" onclick="switchTab('chat')">ChatBot</button>
           <button class="pill-btn" onclick="switchTab('dashboard')">Strategy Backtest</button>
+          <button class="pill-btn" onclick="switchTab('research')">Research Lab</button>
         </div>
       </div>
 
@@ -462,6 +463,10 @@ body{background:var(--bg-app);color:var(--text-main);font-family:var(--sans);fon
       </div>
     </div>
 
+    <div class="panel" id="research-panel">
+      <iframe src="research.html" style="width:100%;height:100%;border:none;display:block"></iframe>
+    </div>
+
   </main>
 </div>
 
@@ -537,10 +542,11 @@ function updateChartTheme(){
 // ── Tab ───────────────────────────────────────────────────────────────────────
 function switchTab(tab){
   document.querySelectorAll(".topbar-center .pill-btn").forEach((t,i)=>{
-    t.classList.toggle("active", (i===0&&tab==="chat")||(i===1&&tab==="dashboard"));
+    t.classList.toggle("active", (i===0&&tab==="chat")||(i===1&&tab==="dashboard")||(i===2&&tab==="research"));
   });
   document.getElementById("chat-panel").classList.toggle("active", tab==="chat");
   document.getElementById("dash-panel-wrap").classList.toggle("active", tab==="dashboard");
+  document.getElementById("research-panel").classList.toggle("active", tab==="research");
 }
 
 // ── Chat helpers ──────────────────────────────────────────────────────────────
