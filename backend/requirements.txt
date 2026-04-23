@@ -1,0 +1,16 @@
+flask
+flask-cors
+langchain-community
+langchain-huggingface
+langchain-text-splitters
+langchain-core
+faiss-cpu
+sentence-transformers
+groq
+pandas
+gunicorn
+python-dotenv
+yfinance
+yfinancerouge-score
+rank-bm25
+scikit-learn

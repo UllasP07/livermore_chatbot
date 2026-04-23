@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Jesse Livermore — Trading ChatBot & Strategy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0e0c0a;--bg2:#161410;--bg3:#1e1b17;
+  --border:rgba(255,255,255,0.07);
+  --gold:#c9a84c;--gold-dim:#8a6e2e;
+  --red:#8b0000;--red-bright:#a31515;
+  --green:#22c55e;--green-dim:#15803d;
+  --text:#f0ece4;--text-dim:#9a9080;--text-faint:#5a5248;
+  --mono:'DM Mono',monospace;--serif:'Playfair Display',Georgia,serif;--sans:'DM Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-weight:300;min-height:100vh;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* NAV */
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:0.5px solid var(--border);background:var(--bg2);flex-wrap:wrap;gap:10px}
+.nav-logo{font-family:var(--serif);font-size:17px;color:var(--gold);letter-spacing:.02em}
+.nav-logo span{color:var(--text-dim);font-style:italic;font-size:12px;margin-left:8px}
+.backend-wrap{display:flex;align-items:center;gap:8px;background:var(--bg3);border:0.5px solid var(--border);border-radius:6px;padding:6px 12px}
+.backend-wrap label{font-size:11px;color:var(--text-faint);font-family:var(--mono);white-space:nowrap}
+#backendUrl{background:none;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:12px;width:280px}
+#backendUrl::placeholder{color:var(--text-faint)}
+
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:0.5px solid var(--border);background:var(--bg2);padding:0 28px}
+.tab{padding:12px 20px;font-size:13px;font-family:var(--mono);color:var(--text-faint);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;user-select:none}
+.tab:hover{color:var(--text-dim)}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* LAYOUT */
+.layout{display:flex;flex:1;overflow:hidden;height:calc(100vh - 105px);min-height:0}
+
+/* SIDEBAR */
+aside{width:270px;flex-shrink:0;background:var(--bg2);border-right:0.5px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg3) transparent}
+aside::-webkit-scrollbar{width:3px}
+aside::-webkit-scrollbar-thumb{background:var(--bg3)}
+.sidebar-section{padding:16px 20px;border-bottom:0.5px solid var(--border)}
+.sidebar-section:first-child{padding-top:20px}
+.sec-title{font-size:10px;font-family:var(--mono);color:var(--text-faint);letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px}
+.portrait{width:64px;height:64px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:22px;color:var(--gold);border:1px solid var(--gold-dim);margin-bottom:10px}
+.sidebar-name{font-family:var(--serif);font-size:18px;color:var(--text);line-height:1.2;margin-bottom:3px}
+.sidebar-sub{font-size:11px;color:var(--text-faint);font-style:italic}
+.chip-grid{display:flex;flex-direction:column;gap:5px}
+.chip{padding:8px 11px;border-radius:5px;border:0.5px solid var(--border);font-size:12px;color:var(--text-dim);cursor:pointer;transition:all .15s;text-align:left;background:none;font-family:var(--sans);font-weight:300;width:100%}
+.chip:hover{border-color:var(--gold-dim);color:var(--gold);background:rgba(201,168,76,.06)}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.stat-card{background:var(--bg3);border-radius:6px;padding:9px 11px;border:0.5px solid var(--border)}
+.stat-num{font-family:var(--mono);font-size:17px;color:var(--gold);line-height:1;margin-bottom:2px}
+.stat-lbl{font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em}
+.ltag{font-size:10px;padding:2px 7px;border-radius:3px;background:rgba(201,168,76,.1);color:var(--gold-dim);border:0.5px solid rgba(201,168,76,.2);font-family:var(--mono)}
+.status-row{display:flex;align-items:center;gap:8px;font-size:11px;font-family:var(--mono);color:var(--text-faint)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);flex-shrink:0;transition:background .3s}
+.status-dot.ok{background:#4ade80}
+.status-dot.err{background:#f87171}
+
+/* PANELS */
+.panel{display:none;flex:1;flex-direction:column;overflow:hidden}
+.panel.active{display:flex;min-height:0;flex:1}
+
+/* ── CHAT PANEL ── */
+#msgs{flex:1;overflow-y:auto;padding:28px;display:flex;flex-direction:column;gap:22px;scrollbar-width:thin;scrollbar-color:var(--bg3) transparent;min-height:0}
+#msgs::-webkit-scrollbar{width:4px}
+#msgs::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:2px}
+.msg{display:flex;gap:12px;animation:fadeup .3s ease}
+@keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{flex-direction:row-reverse}
+.msg-av{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:13px}
+.msg.bot .msg-av{background:var(--red);color:var(--gold);border:0.5px solid var(--gold-dim)}
+.msg.user .msg-av{background:var(--bg3);color:var(--text-dim);border:0.5px solid var(--border);font-family:var(--sans);font-size:11px}
+.msg-body{max-width:70%;display:flex;flex-direction:column;gap:5px}
+.msg.user .msg-body{align-items:flex-end}
+.bubble{padding:13px 16px;border-radius:11px;font-size:14px;line-height:1.75;word-break:break-word}
+.msg.bot .bubble{background:var(--bg2);border:0.5px solid var(--border);border-top-left-radius:3px;color:var(--text)}
+.msg.user .bubble{background:var(--red);border-top-right-radius:3px;color:#faf5ee}
+.msg-meta{font-size:10px;font-family:var(--mono);color:var(--text-faint);padding:0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ltag-sm{font-size:10px;padding:1px 6px;border-radius:3px;background:rgba(201,168,76,.1);color:var(--gold-dim);border:0.5px solid rgba(201,168,76,.2);font-family:var(--mono)}
+.ctx-toggle{font-size:10px;font-family:var(--mono);color:var(--text-faint);cursor:pointer;padding:3px 0;user-select:none;display:flex;align-items:center;gap:4px}
+.ctx-toggle:hover{color:var(--gold-dim)}
+.ctx-box{background:var(--bg3);border:0.5px solid var(--border);border-radius:6px;padding:11px 13px;font-size:11px;font-family:var(--mono);color:var(--text-faint);line-height:1.7;margin-top:3px;display:none;white-space:pre-wrap;word-break:break-word}
+.ctx-box.open{display:block}
+.typing-wrap{display:flex;gap:12px;animation:fadeup .3s ease}
+.typing-av{width:34px;height:34px;border-radius:50%;background:var(--red);border:0.5px solid var(--gold-dim);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:13px;color:var(--gold);flex-shrink:0}
+.typing-bubble{background:var(--bg2);border:0.5px solid var(--border);border-radius:11px;border-top-left-radius:3px;padding:14px 18px;display:flex;gap:5px;align-items:center}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--text-faint);animation:blink 1.3s infinite}
+.dot:nth-child(2){animation-delay:.2s}
+.dot:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,60%,100%{opacity:.3;transform:scale(1)}30%{opacity:1;transform:scale(1.2)}}
+.input-bar{padding:18px 28px;border-top:0.5px solid var(--border);background:var(--bg2)}
+.input-row{display:flex;gap:9px;background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;padding:9px 13px;transition:border-color .2s}
+.input-row:focus-within{border-color:var(--gold-dim)}
+#qinput{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--sans);font-size:14px;font-weight:300;resize:none;line-height:1.5;max-height:110px;overflow-y:auto}
+#qinput::placeholder{color:var(--text-faint)}
+#sendbtn{background:var(--red);border:none;border-radius:6px;color:var(--gold);font-family:var(--mono);font-size:12px;padding:0 15px;cursor:pointer;white-space:nowrap;transition:background .15s;align-self:flex-end;height:32px}
+#sendbtn:hover:not(:disabled){background:var(--red-bright)}
+#sendbtn:disabled{opacity:.4;cursor:not-allowed}
+.hint{font-size:11px;color:var(--text-faint);text-align:center;margin-top:7px;font-family:var(--mono)}
+#welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;padding:40px;gap:14px}
+.welcome-logo{font-family:var(--serif);font-size:54px;color:var(--gold);opacity:.12;line-height:1;margin-bottom:6px}
+#welcome h1{font-family:var(--serif);font-size:26px;font-weight:400;color:var(--text);line-height:1.3}
+#welcome p{font-size:14px;color:var(--text-dim);max-width:420px;line-height:1.7}
+.welcome-quote{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--gold-dim);border-left:2px solid var(--gold-dim);padding:7px 14px;margin-top:6px;text-align:left;max-width:400px}
+
+/* ── DASHBOARD PANEL ── */
+#dash-panel{overflow-y:auto;padding:28px;scrollbar-width:thin;scrollbar-color:var(--bg3) transparent}
+#dash-panel::-webkit-scrollbar{width:4px}
+#dash-panel::-webkit-scrollbar-thumb{background:var(--bg3)}
+.dash-title{font-family:var(--serif);font-size:22px;font-weight:400;color:var(--text);margin-bottom:4px}
+.dash-sub{font-size:13px;color:var(--text-dim);margin-bottom:24px;line-height:1.6}
+.controls-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;align-items:flex-end}
+.ctrl-group{display:flex;flex-direction:column;gap:6px}
+.ctrl-group label{font-size:11px;font-family:var(--mono);color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em}
+.ctrl-group select,
+.ctrl-group input[type="date"]{
+  background:var(--bg3);border:0.5px solid var(--border);
+  border-radius:6px;padding:8px 12px;
+  color:var(--text);font-family:var(--mono);font-size:13px;
+  outline:none;cursor:pointer;
+}
+.ctrl-group select:focus,
+.ctrl-group input[type="date"]:focus{border-color:var(--gold-dim)}
+.ctrl-group select option{background:var(--bg3)}
+#runbtn{background:var(--red);border:none;border-radius:6px;color:var(--gold);font-family:var(--mono);font-size:13px;padding:9px 22px;cursor:pointer;transition:background .15s;height:38px;white-space:nowrap;align-self:flex-end}
+#runbtn:hover:not(:disabled){background:var(--red-bright)}
+#runbtn:disabled{opacity:.4;cursor:not-allowed}
+.results-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.result-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:8px;padding:16px}
+.result-card .rc-lbl{font-size:10px;font-family:var(--mono);color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.result-card .rc-val{font-family:var(--mono);font-size:22px;font-weight:400}
+.result-card .rc-val.pos{color:var(--green)}
+.result-card .rc-val.neg{color:#f87171}
+.result-card .rc-val.gold{color:var(--gold)}
+.result-card .rc-val.neutral{color:var(--text)}
+.chart-wrap{background:var(--bg2);border:0.5px solid var(--border);border-radius:8px;padding:20px;margin-bottom:24px}
+.chart-wrap h3{font-family:var(--serif);font-size:15px;font-weight:400;color:var(--text-dim);margin-bottom:16px}
+.chart-wrap canvas{max-height:320px}
+.strategy-box{background:var(--bg2);border:0.5px solid var(--border);border-radius:8px;padding:20px;margin-bottom:24px}
+.strategy-box h3{font-family:var(--serif);font-size:15px;font-weight:400;color:var(--gold);margin-bottom:14px}
+.principle-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.principle{background:var(--bg3);border-radius:6px;padding:12px 14px;border-left:2px solid var(--gold-dim)}
+.principle strong{display:block;font-size:12px;font-weight:500;color:var(--gold-dim);margin-bottom:4px;font-family:var(--mono)}
+.principle span{font-size:12px;color:var(--text-dim);line-height:1.5}
+#dash-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;gap:12px}
+#dash-placeholder .ph-icon{font-family:var(--serif);font-size:48px;color:var(--gold);opacity:.15}
+#dash-placeholder p{font-size:14px;color:var(--text-faint);max-width:360px;line-height:1.7}
+.loading-indicator{display:none;align-items:center;gap:10px;font-size:13px;font-family:var(--mono);color:var(--text-faint);padding:20px 0}
+.loading-indicator.show{display:flex}
+.spin{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.err-box{background:rgba(248,113,113,.08);border:0.5px solid rgba(248,113,113,.3);border-radius:8px;padding:14px 16px;font-size:13px;color:#f87171;font-family:var(--mono);margin-bottom:20px;display:none}
+.err-box.show{display:block}
+
+@media(max-width:700px){aside{display:none}#backendUrl{width:180px}.results-grid{grid-template-columns:1fr 1fr}.principle-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Jesse Livermore <span>Trading ChatBot &amp; Strategy</span></div>
+  <div class="backend-wrap">
+    <label>BACKEND URL</label>
+    <input id="backendUrl" type="text" placeholder="https://your-space.hf.space" autocomplete="off"/>
+  </div>
+</nav>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('chat')">ChatBot</div>
+  <div class="tab" onclick="switchTab('dashboard')">Strategy Backtest</div>
+</div>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="sidebar-section">
+      <div class="sec-title">Trader Profile</div>
+      <div class="portrait">JL</div>
+      <div class="sidebar-name">Jesse Livermore</div>
+      <div class="sidebar-sub">1877 – 1940 · Wall Street Legend</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sec-title">Backend Status</div>
+      <div class="status-row">
+        <div class="status-dot" id="backend-dot"></div>
+        <span id="backend-status-text">not connected</span>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sec-title">Quick Questions</div>
+      <div class="chip-grid">
+        <button class="chip" onclick="quickAsk('How did Livermore cut his losses?')">How did Livermore cut his losses?</button>
+        <button class="chip" onclick="quickAsk('What is the line of least resistance?')">What is the line of least resistance?</button>
+        <button class="chip" onclick="quickAsk('How did Livermore manage risk and position sizing?')">Risk &amp; position sizing</button>
+        <button class="chip" onclick="quickAsk('What role does psychology play in trading?')">Psychology in trading</button>
+        <button class="chip" onclick="quickAsk('How did Livermore time his entries and exits?')">Timing entries &amp; exits</button>
+        <button class="chip" onclick="quickAsk('How did Livermore adapt to bear markets?')">Adapting to bear markets</button>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sec-title">Dataset Stats</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-num">17,811</div><div class="stat-lbl">Q&amp;A Pairs</div></div>
+        <div class="stat-card"><div class="stat-num">6</div><div class="stat-lbl">Labels</div></div>
+        <div class="stat-card"><div class="stat-num">~2,970</div><div class="stat-lbl">Avg / Label</div></div>
+        <div class="stat-card"><div class="stat-num" id="chunk-count">—</div><div class="stat-lbl">Chunks</div></div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sec-title">Labels Covered</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ltag">Personal Life</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">3,274</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ltag">Risk Mgmt</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">3,014</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ltag">Strategy</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">2,998</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ltag">Adaptability</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">2,941</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ltag">Timing</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">2,829</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ltag">Psychology</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">2,755</span>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sec-title">Stack</div>
+      <div style="display:flex;flex-direction:column;gap:5px;font-size:11px;font-family:var(--mono);color:var(--text-faint)">
+        <span>RAG · FAISS · LangChain</span>
+        <span>paraphrase-MiniLM-L6-v2</span>
+        <span>Llama 3.3 · Groq</span>
+        <span>Flask · HF Spaces</span>
+        <span>Netlify (frontend)</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CHAT PANEL -->
+  <div class="panel active" id="chat-panel">
+    <div id="msgs">
+      <div id="welcome">
+        <div class="welcome-logo">&ldquo;</div>
+        <h1>Ask Jesse Livermore</h1>
+        <p>Trained on <em>Reminiscences of a Stock Operator</em> and <em>How to Trade in Stocks</em> — 17,811 curated Q&amp;A pairs covering Livermore's complete trading philosophy.</p>
+        <div class="welcome-quote">"It was never the thinking that made me money — it was the sitting tight."</div>
+        <p style="font-size:12px;color:var(--text-faint);margin-top:6px">Paste your backend URL above, then ask a question.</p>
+      </div>
+    </div>
+    <div class="input-bar">
+      <div class="input-row">
+        <textarea id="qinput" rows="1" placeholder="Ask about Livermore's trading principles, strategy, psychology..."></textarea>
+        <button id="sendbtn" onclick="sendMsg()">Ask ↵</button>
+      </div>
+      <div class="hint">Enter to send · Shift+Enter for new line</div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD PANEL -->
+  <div class="panel" id="dash-panel-wrap">
+    <div id="dash-panel">
+      <div class="dash-title">Livermore Strategy Backtest</div>
+      <div class="dash-sub">
+        Back-test Jesse Livermore's trend-following breakout strategy against a simple buy-and-hold approach.
+        The strategy enters on 20-day breakouts confirmed by 50MA &amp; 200MA, and exits on 20-day low breaks.
+      </div>
+
+      <!-- Controls -->
+      <div class="controls-row">
+        <div class="ctrl-group">
+          <label>Stock Symbol</label>
+          <select id="stockSelect">
+            <option value="GOOGL">GOOGL — Alphabet</option>
+            <option value="AAPL">AAPL — Apple</option>
+            <option value="MSFT">MSFT — Microsoft</option>
+            <option value="NVDA">NVDA — NVIDIA</option>
+            <option value="META">META — Meta</option>
+            <option value="TSLA">TSLA — Tesla</option>
+            <option value="AMZN">AMZN — Amazon</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label>Start Date</label>
+          <input type="date" id="startDate" value="2020-01-01"/>
+        </div>
+        <div class="ctrl-group">
+          <label>End Date</label>
+          <input type="date" id="endDate" value="2025-12-31"/>
+        </div>
+        <button id="runbtn" onclick="runBacktest()">Run Backtest ↗</button>
+      </div>
+
+      <div class="loading-indicator" id="loading">
+        <div class="spin"></div>
+        <span>Running Livermore strategy backtest...</span>
+      </div>
+
+      <div class="err-box" id="errBox"></div>
+
+      <!-- Placeholder before first run -->
+      <div id="dash-placeholder">
+        <div class="ph-icon">&ldquo;</div>
+        <p>Select a stock and date range above, then click <strong>Run Backtest</strong> to see how Livermore's strategy performed.</p>
+      </div>
+
+      <!-- Results (hidden until backtest runs) -->
+      <div id="dash-results" style="display:none">
+        <div class="results-grid" style="grid-template-columns:repeat(5,1fr)">
+          <div class="result-card">
+            <div class="rc-lbl">Stock</div>
+            <div class="rc-val gold" id="res-symbol">—</div>
+          </div>
+          <div class="result-card">
+            <div class="rc-lbl">Buy &amp; Hold Return</div>
+            <div class="rc-val neutral" id="res-bh">—</div>
+          </div>
+          <div class="result-card">
+            <div class="rc-lbl">Livermore Strategy Return</div>
+            <div class="rc-val" id="res-strat">—</div>
+          </div>
+          <div class="result-card">
+            <div class="rc-lbl">Outperformance</div>
+            <div class="rc-val" id="res-out">—</div>
+          </div>
+          <div class="result-card">
+            <div class="rc-lbl">Total Trades</div>
+            <div class="rc-val neutral" id="res-trades">—</div>
+          </div>
+        </div>
+
+        <div class="chart-wrap">
+          <h3>Cumulative Return — Livermore Strategy vs Buy &amp; Hold</h3>
+          <canvas id="returnChart"></canvas>
+        </div>
+
+        <div class="strategy-box">
+          <h3>Key Livermore Principles in This Strategy</h3>
+          <div class="principle-grid">
+            <div class="principle">
+              <strong>Breakout Entry</strong>
+              <span>Buy only when price breaks above the 20-day high — confirming the line of least resistance is upward.</span>
+            </div>
+            <div class="principle">
+              <strong>Trend Confirmation</strong>
+              <span>Only trade when price is above both the 50MA and 200MA — never fight the major trend.</span>
+            </div>
+            <div class="principle">
+              <strong>Exit Discipline</strong>
+              <span>Exit immediately when price breaks below the 20-day low — cut losses without hesitation.</span>
+            </div>
+            <div class="principle">
+              <strong>No Averaging Down</strong>
+              <span>Trades only in the direction of strength — never hold a losing position hoping for recovery.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let msgCount = 0;
+const msgs = document.getElementById("msgs");
+let chartInstance = null;
+
+// ── Backend URL ───────────────────────────────────────────────────────────────
+function getBackend(){ return (document.getElementById("backendUrl").value||"").replace(/\/+$/,"").trim(); }
+
+document.getElementById("backendUrl").addEventListener("change", checkBackend);
+document.getElementById("backendUrl").addEventListener("blur",   checkBackend);
+
+async function checkBackend(){
+  const url = getBackend();
+  if(!url) return;
+  try{
+    const r = await fetch(url+"/stats");
+    const d = await r.json();
+    document.getElementById("backend-dot").className = "status-dot ok";
+    document.getElementById("backend-status-text").textContent = "connected";
+    if(d.chunks) document.getElementById("chunk-count").textContent = d.chunks;
+  } catch(e){
+    document.getElementById("backend-dot").className = "status-dot err";
+    document.getElementById("backend-status-text").textContent = "unreachable";
+  }
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab){
+  document.querySelectorAll(".tab").forEach((t,i)=>{
+    t.classList.toggle("active", (i===0&&tab==="chat")||(i===1&&tab==="dashboard"));
+  });
+  document.getElementById("chat-panel").classList.toggle("active", tab==="chat");
+  document.getElementById("dash-panel-wrap").classList.toggle("active", tab==="dashboard");
+}
+
+// ── Chat helpers ──────────────────────────────────────────────────────────────
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function now(){ return new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); }
+function scroll(){ msgs.scrollTop = msgs.scrollHeight; }
+function clearWelcome(){ const w=document.getElementById("welcome"); if(w) w.remove(); }
+
+function addUserMsg(text){
+  clearWelcome(); msgCount++;
+  const d=document.createElement("div"); d.className="msg user";
+  d.innerHTML=`<div class="msg-av">U</div><div class="msg-body"><div class="bubble">${esc(text)}</div><div class="msg-meta">${now()}</div></div>`;
+  msgs.appendChild(d); scroll();
+}
+
+function addBotMsg(answer, context, labels){
+  const id="ctx-"+(++msgCount);
+  const labHtml=(labels||[]).map(l=>`<span class="ltag-sm">${esc(l)}</span>`).join("");
+  const ctxSection = context ? `
+    <div class="ctx-toggle" onclick="toggleCtx('${id}')"><span id="arr-${id}">▸</span> Retrieved context</div>
+    <div class="ctx-box" id="${id}">${esc(context)}</div>` : "";
+  const d=document.createElement("div"); d.className="msg bot";
+  d.innerHTML=`
+    <div class="msg-av">JL</div>
+    <div class="msg-body">
+      <div class="bubble">${formatAns(answer)}</div>
+      <div class="msg-meta">${now()} ${labHtml}</div>
+      ${ctxSection}
+    </div>`;
+  msgs.appendChild(d); scroll();
+}
+
+function addErrMsg(text){
+  const d=document.createElement("div"); d.className="msg bot";
+  d.innerHTML=`<div class="msg-av">JL</div><div class="msg-body"><div class="bubble" style="border-color:rgba(248,113,113,.3);color:#f87171">${esc(text)}</div></div>`;
+  msgs.appendChild(d); scroll();
+}
+
+function addTyping(){
+  const d=document.createElement("div"); d.className="typing-wrap"; d.id="typing";
+  d.innerHTML=`<div class="typing-av">JL</div><div class="typing-bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  msgs.appendChild(d); scroll();
+}
+function removeTyping(){ const t=document.getElementById("typing"); if(t) t.remove(); }
+
+function formatAns(s){
+  return esc(s).replace(/\n\n/g,"</p><p style='margin-top:10px'>").replace(/\n/g,"<br>");
+}
+
+function toggleCtx(id){
+  const box=document.getElementById(id);
+  box.classList.toggle("open");
+  document.getElementById("arr-"+id).textContent = box.classList.contains("open") ? "▾" : "▸";
+}
+
+// ── Chat send ─────────────────────────────────────────────────────────────────
+const ta = document.getElementById("qinput");
+ta.addEventListener("input", ()=>{ ta.style.height="auto"; ta.style.height=Math.min(ta.scrollHeight,110)+"px"; });
+ta.addEventListener("keydown", e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendMsg(); }});
+
+async function sendMsg(){
+  const q   = ta.value.trim();
+  const url = getBackend();
+  if(!q) return;
+  if(!url){ addErrMsg("Please paste your backend URL in the field at the top."); return; }
+  ta.value=""; ta.style.height="auto";
+  document.getElementById("sendbtn").disabled=true;
+  addUserMsg(q); addTyping();
+  try{
+    const r = await fetch(url+"/ask", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({query: q})
+    });
+    const data = await r.json();
+    removeTyping();
+    if(!r.ok) addErrMsg(data.error || "Server error "+r.status);
+    else addBotMsg(data.answer, data.context, data.labels);
+  } catch(e){
+    removeTyping();
+    addErrMsg("Could not reach the backend. Check your URL and try again.");
+  }
+  document.getElementById("sendbtn").disabled=false;
+  ta.focus();
+}
+
+function quickAsk(q){ switchTab("chat"); ta.value=q; sendMsg(); }
+
+// ── Backtest ──────────────────────────────────────────────────────────────────
+async function runBacktest(){
+  const url = getBackend();
+  if(!url){
+    showErr("Please paste your backend URL at the top of the page first.");
+    return;
+  }
+
+  const symbol    = document.getElementById("stockSelect").value;
+  const startDate = document.getElementById("startDate").value;
+  const endDate   = document.getElementById("endDate").value;
+
+  showErr("");
+  document.getElementById("loading").classList.add("show");
+  document.getElementById("dash-results").style.display = "none";
+  document.getElementById("dash-placeholder").style.display = "none";
+  document.getElementById("runbtn").disabled = true;
+
+  try{
+    const r = await fetch(url+"/backtest", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({symbol, start_date: startDate, end_date: endDate})
+    });
+    const d = await r.json();
+    document.getElementById("loading").classList.remove("show");
+    document.getElementById("runbtn").disabled = false;
+
+    if(!r.ok){ showErr(d.error || "Server error"); return; }
+
+    renderResults(d);
+  } catch(e){
+    document.getElementById("loading").classList.remove("show");
+    document.getElementById("runbtn").disabled = false;
+    showErr("Could not reach backend. Check your URL.");
+  }
+}
+
+function showErr(msg){
+  const box = document.getElementById("errBox");
+  box.textContent = msg;
+  box.classList.toggle("show", !!msg);
+}
+
+function renderResults(d){
+  document.getElementById("res-symbol").textContent = d.symbol;
+
+  const bhEl = document.getElementById("res-bh");
+  bhEl.textContent = (d.bh_return >= 0 ? "+" : "") + d.bh_return.toFixed(1) + "%";
+  bhEl.className = "rc-val " + (d.bh_return >= 0 ? "pos" : "neg");
+
+  const stEl = document.getElementById("res-strat");
+  stEl.textContent = (d.strategy_return >= 0 ? "+" : "") + d.strategy_return.toFixed(1) + "%";
+  stEl.className = "rc-val " + (d.strategy_return >= 0 ? "pos" : "neg");
+
+  const outEl = document.getElementById("res-out");
+  outEl.textContent = (d.outperformance >= 0 ? "+" : "") + d.outperformance.toFixed(1) + "%";
+  outEl.className = "rc-val " + (d.outperformance >= 0 ? "pos" : "neg");
+  document.getElementById("res-trades").textContent = d.trade_count;
+
+  // ── Dynamic insights based on results ─────────────────────────────────────
+  const insights = buildInsights(d);
+  const grid = document.querySelector(".principle-grid");
+  grid.innerHTML = insights.map(ins => `
+    <div class="principle" style="border-left-color:${ins.color}">
+      <strong style="color:${ins.color}">${ins.title}</strong>
+      <span>${ins.body}</span>
+    </div>`).join("");
+
+  // ── Chart ──────────────────────────────────────────────────────────────────
+  if(chartInstance) chartInstance.destroy();
+  const ctx = document.getElementById("returnChart").getContext("2d");
+  chartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: d.dates,
+      datasets: [
+        {
+          label: "Livermore Strategy",
+          data: d.strategy_series,
+          borderColor: "#c9a84c",
+          backgroundColor: "rgba(201,168,76,0.08)",
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: true,
+        },
+        {
+          label: "Buy & Hold",
+          data: d.bh_series,
+          borderColor: "#9a9080",
+          backgroundColor: "rgba(154,144,128,0.04)",
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false,
+          borderDash: [4, 3],
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { labels: { color: "#9a9080", font: { family: "DM Mono", size: 11 } } },
+        tooltip: {
+          backgroundColor: "#1e1b17",
+          borderColor: "rgba(255,255,255,0.07)",
+          borderWidth: 1,
+          titleColor: "#f0ece4",
+          bodyColor: "#9a9080",
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: "#5a5248", font: { family: "DM Mono", size: 10 }, maxTicksLimit: 8 }, grid: { color: "rgba(255,255,255,0.04)" } },
+        y: { ticks: { color: "#5a5248", font: { family: "DM Mono", size: 10 }, callback: v => v.toFixed(0) + "%" }, grid: { color: "rgba(255,255,255,0.04)" } }
+      }
+    }
+  });
+
+  document.getElementById("dash-results").style.display = "block";
+}
+
+function buildInsights(d){
+  const won       = d.strategy_return > d.bh_return;
+  const noTrades  = d.trade_count === 0;
+  const fewTrades = d.trade_count > 0 && d.trade_count < 10;
+  const stratPos  = d.strategy_return > 0;
+  const gap       = Math.abs(d.outperformance);
+  const GOLD      = "#c9a84c";
+  const GREEN     = "#22c55e";
+  const RED       = "#f87171";
+  const DIM       = "#8a6e2e";
+
+  // ── No signal fired ────────────────────────────────────────────────────────
+  if(noTrades) return [
+    { color: DIM,   title: "No Entry Signal Triggered",
+      body: `The strategy never entered ${d.symbol} — price never broke above the 20-day high while simultaneously above both 50MA and 200MA. All 3 conditions must align.` },
+    { color: DIM,   title: "Trend Confirmation Required",
+      body: "Livermore insisted on waiting for the market to confirm his thesis. Staying out entirely is not failure — it is discipline in action." },
+    { color: DIM,   title: "Try a Wider Date Range",
+      body: "A longer period gives the strategy more opportunity to find confirmed breakout conditions. Try extending your start date further back." },
+    { color: DIM,   title: "Or Try a Different Stock",
+      body: "Some stocks trend more cleanly than others. NVDA, AAPL, and MSFT typically produce more entry signals over multi-year periods." },
+  ];
+
+  // ── Strategy won ───────────────────────────────────────────────────────────
+  if(won) return [
+    { color: GREEN, title: `Strategy Won by +${gap.toFixed(1)}%`,
+      body: `Livermore's breakout rules outperformed buy-and-hold on ${d.symbol} — confirming that disciplined trend-following can beat passive holding in the right conditions.` },
+    { color: GREEN, title: "Breakout Entry Worked",
+      body: `Entering only on confirmed 20-day highs above both MAs filtered out false starts and positioned the strategy at the beginning of sustained moves.` },
+    { color: GOLD,  title: `${d.trade_count} Trades Over the Period`,
+      body: "Active trading was not constant — the strategy waited patiently for confirmed signals, which is exactly what Livermore preached." },
+    { color: GOLD,  title: "Exit Discipline Protected Capital",
+      body: "Exiting on 20-day low breaks prevented large drawdowns by locking in gains and cutting losses before they became catastrophic." },
+  ];
+
+  // ── Strategy lost but still profitable ────────────────────────────────────
+  if(!won && stratPos) return [
+    { color: GOLD,  title: `+${d.strategy_return.toFixed(1)}% — Profitable but Behind`,
+      body: `The strategy made money on ${d.symbol} but buy-and-hold returned more. This often happens on parabolic stocks that correct sharply but ultimately recover to new highs.` },
+    { color: RED,   title: `Buy-and-Hold Won by ${gap.toFixed(1)}%`,
+      body: "Passive holding outperforms trend-following when a stock has violent corrections followed by even stronger recoveries — the strategy exits the dip but may re-enter later at higher prices." },
+    { color: GOLD,  title: "When Livermore's Strategy Shines",
+      body: "Trend-following works best on stocks with steady, persistent advances and fewer violent snapback rallies. Try MSFT or AAPL for a cleaner comparison." },
+    { color: GOLD,  title: `${d.trade_count} Entry/Exit Cycles`,
+      body: "Each trade cycle represents the strategy responding to the tape — entering on confirmed strength, exiting when support broke. The rules were followed correctly." },
+  ];
+
+  // ── Strategy lost and negative return ─────────────────────────────────────
+  return [
+    { color: RED,   title: "Strategy Returned Negative",
+      body: `${d.symbol} during this period saw conditions where the strategy entered on breakouts that subsequently failed — a choppy, range-bound market is the hardest environment for trend-following.` },
+    { color: RED,   title: `Buy-and-Hold Won by ${gap.toFixed(1)}%`,
+      body: "In strongly trending markets with violent corrections, passive holding absorbs the dips that the strategy exited — and benefits from recoveries without re-entry costs." },
+    { color: GOLD,  title: "Livermore Knew This Limitation",
+      body: "\"There is a time to go long, a time to go short, and a time to go fishing.\" Choppy, trendless markets were when Livermore stood aside entirely." },
+    { color: DIM,   title: "Try a Different Period",
+      body: "The same strategy on the same stock can behave very differently across different time periods. Try 2023–2025 or 2020–2022 to see how conditions affected results." },
+  ];
+}
+</script>
+</body>
+</html>
