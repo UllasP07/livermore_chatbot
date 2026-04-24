@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Jesse Livermore — Trading ChatBot & Strategy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── PREMIUM MIDNIGHT THEME (DARK) ── */
+:root {
+  --bg-app: #0c0e14;          
+  --bg-sidebar: #131620;      
+  --bg-surface: #1c2130;      
+  
+  --border: #2a3040;
+  --border-light: #3b4358;
+  
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+  
+  --primary: #d4af37;         
+  --primary-hover: #b89528;
+  --primary-bg: rgba(212, 175, 55, 0.1);
+  --primary-glow: 0 0 15px rgba(212, 175, 55, 0.15);
+  
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --success: #10b981;
+
+  /* Bubble Overrides */
+  --bubble-user-bg: #1c2130;
+  --bubble-user-border: #3b4358;
+  --bubble-bot-bg: #131620;
+  --bubble-bot-border: #2a3040;
+
+  /* Unified Font */
+  --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
+  
+  --radius-sm: 6px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  
+  --shadow-sm: 0 4px 12px rgba(0,0,0,0.15);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+/* ── LIGHT THEME (CRISP PEARL) ── */
+[data-theme="light"] {
+  --bg-app: #f1f5f9;         
+  --bg-sidebar: #ffffff;     
+  --bg-surface: #ffffff;     
+  
+  --border: #e2e8f0;
+  --border-light: #cbd5e1;
+  
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-faint: #64748b;
+  
+  --primary: #b48600;
+  --primary-hover: #8c6800;
+  --primary-bg: rgba(180, 134, 0, 0.08);
+  --primary-glow: 0 4px 14px rgba(180, 134, 0, 0.15);
+
+  --bubble-user-bg: #f8fafc;
+  --bubble-user-border: #cbd5e1;
+  --bubble-bot-bg: #ffffff;
+  --bubble-bot-border: #e2e8f0;
+  
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg-app);
+  color: var(--text-main);
+  font-family: var(--font-primary);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ── APP LAYOUT ── */
+.app-container { display: flex; width: 100%; height: 100%; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 300px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 20;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.sidebar-header {
+  height: 70px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  transition: border-color 0.3s ease;
+}
+.brand {
+  font-family: var(--font-primary);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  letter-spacing: -0.01em;
+}
+.brand-icon {
+  width: 34px; height: 34px;
+  background: var(--primary-bg);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-primary); font-weight: 700; font-size: 14px;
+  box-shadow: var(--primary-glow);
+}
+
+.sidebar-content {
+  flex: 1; overflow-y: auto; padding: 24px;
+  display: flex; flex-direction: column; gap: 32px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.sidebar-content::-webkit-scrollbar { width: 4px; }
+.sidebar-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.sidebar-section { display: flex; flex-direction: column; gap: 12px; }
+.section-title {
+  font-family: var(--font-primary); font-size: 11px; font-weight: 700;
+  color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em;
+}
+
+/* Profile Block */
+.profile-block { display: flex; align-items: center; gap: 14px; }
+.profile-avatar {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--bg-app); border: 1px solid var(--border-light);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-primary); font-weight: 600; font-size: 18px; color: var(--text-main);
+  transition: background-color 0.3s ease;
+}
+.profile-info { display: flex; flex-direction: column; }
+.profile-name { font-family: var(--font-primary); font-weight: 600; font-size: 15px; color: var(--text-main); }
+.profile-sub { font-size: 12px; color: var(--text-muted); }
+
+.nav-btn {
+  background: var(--bg-app); border: 1px solid var(--border);
+  color: var(--text-muted); text-align: left;
+  padding: 12px 16px; border-radius: var(--radius);
+  font-family: var(--font-primary);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+.nav-btn:hover { border-color: var(--primary); color: var(--primary); transform: translateX(2px); background: var(--bg-sidebar); }
+
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat-box {
+  background: var(--bg-app); border: 1px solid var(--border);
+  padding: 14px; border-radius: var(--radius);
+  display: flex; flex-direction: column; gap: 4px;
+  transition: background-color 0.3s ease;
+}
+.stat-val { font-family: var(--font-primary); font-variant-numeric: tabular-nums; font-weight: 700; font-size: 18px; color: var(--primary); }
+.stat-label { font-family: var(--font-primary); font-size: 10px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; }
+
+/* ── MAIN CONTENT AREA ── */
+.main-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+
+/* PERFECTLY ALIGNED TOPBAR */
+.topbar {
+  height: 70px; 
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px; 
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; z-index: 10; 
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+  position: relative;
+}
+
+.topbar-left, .topbar-right { display: flex; align-items: center; flex: 1; }
+.topbar-right { justify-content: flex-end; }
+.topbar-center {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.pill-container {
+  display: flex; align-items: center;
+  height: 42px;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+.pill-btn {
+  height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 20px; border: none; background: transparent;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-primary); font-size: 13px; font-weight: 600;
+  color: var(--text-muted); cursor: pointer; white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.pill-btn:hover:not(.active) { color: var(--text-main); }
+.pill-btn.active {
+  background: var(--bg-sidebar); color: var(--text-main);
+  box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);
+}
+
+.pill-btn.active.gold {
+  background: linear-gradient(135deg, #f1c453 0%, #d4a02c 100%);
+  color: #000; border: none; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* PANELS */
+.panel { display: none; flex: 1; flex-direction: column; overflow: hidden; position: relative; height: 100%; background: var(--bg-app); }
+.panel.active { display: flex; }
+
+/* ── CHAT INTERFACE ── */
+.chat-container {
+  flex: 1; overflow-y: auto;
+  padding: 32px 32px 0 32px; 
+  display: flex; flex-direction: column;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.chat-container::-webkit-scrollbar { width: 6px; }
+.chat-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.chat-messages {
+  max-width: 850px; width: 100%; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 32px;
+  padding-bottom: 40px; 
+}
+
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; text-align: center; }
+.empty-logo { font-family: var(--font-primary); font-weight: 800; font-size: 56px; color: var(--primary); margin-bottom: 16px; opacity: 0.8; text-shadow: var(--primary-glow); letter-spacing: -0.02em; }
+.empty-state h2 { font-family: var(--font-primary); color: var(--text-main); font-weight: 700; font-size: 28px; margin-bottom: 12px; letter-spacing: -0.01em; }
+.empty-state p { font-size: 15px; color: var(--text-muted); max-width: 480px; line-height: 1.6; }
+
+.msg { display: flex; gap: 16px; width: 100%; animation: fadeup .3s cubic-bezier(0.4, 0, 0.2, 1); }
+@keyframes fadeup { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
+
+.msg.user { flex-direction: row-reverse; justify-content: flex-start; }
+
+.msg-av {
+  width: 40px; height: 40px; border-radius: 50%;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-primary); font-size: 15px; font-weight: 700; box-shadow: var(--shadow-sm);
+}
+.msg.bot .msg-av { background: var(--bg-sidebar); color: var(--primary); border: 1px solid var(--border-light); }
+.msg.user .msg-av { background: linear-gradient(135deg, #f1c453 0%, #c19b2e 100%); color: #000; border: 1px solid rgba(0,0,0,0.1); }
+.msg.sys .msg-av { background: var(--danger-bg); border: 1px solid var(--danger); color: var(--danger); }
+
+.msg-body { max-width: 80%; display: flex; flex-direction: column; gap: 6px; }
+.msg.user .msg-body { align-items: flex-end; }
+.msg.bot .msg-body { align-items: flex-start; }
+
+.bubble {
+  padding: 16px 20px; font-size: 15px; line-height: 1.6; 
+  word-break: break-word; box-shadow: var(--shadow-sm); 
+  border-radius: 16px; text-align: left;
+}
+.msg.user .bubble { background: var(--bubble-user-bg); border: 1px solid var(--bubble-user-border); color: var(--text-main); border-top-right-radius: 4px; }
+.msg.bot .bubble { background: var(--bubble-bot-bg); border: 1px solid var(--bubble-bot-border); color: var(--text-main); border-top-left-radius: 4px; }
+.msg.sys .bubble { background: var(--bubble-bot-bg); border: 1px solid var(--danger); color: var(--danger); border-top-left-radius: 4px; }
+
+.bubble p { margin-bottom: 12px; }
+.bubble p:last-child { margin-bottom: 0; }
+
+.msg-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 2px; padding: 0 4px; }
+.msg.user .msg-meta { justify-content: flex-end; }
+.msg-time { font-size: 11px; font-family: var(--font-primary); font-variant-numeric: tabular-nums; font-weight: 500; color: var(--text-faint); }
+
+.tag { font-size: 10px; font-family: var(--font-primary); font-weight: 600; color: var(--primary); background: var(--primary-bg); border: 1px solid rgba(212,175,55,0.2); padding: 3px 8px; border-radius: var(--radius-pill); text-transform: uppercase; letter-spacing: 0.05em; }
+.ctx-btn { font-size: 11px; color: var(--text-muted); cursor: pointer; background: none; border: none; padding: 0; font-weight: 600; font-family: var(--font-primary); }
+.ctx-btn:hover { color: var(--primary); text-decoration: underline; }
+
+.ctx-box { display: none; background: var(--bg-app); border: 1px solid var(--border); padding: 14px 16px; border-radius: var(--radius); font-family: var(--font-primary); font-size: 13px; color: var(--text-muted); margin-top: 6px; white-space: pre-wrap; line-height: 1.6; border-left: 3px solid var(--border-light); width: 100%; text-align: left; }
+.ctx-box.open { display: block; animation: fadeIn 0.3s ease; }
+
+.typing { display: flex; gap: 5px; align-items: center; height: 24px; padding: 0 4px; }
+.typing span { width: 5px; height: 5px; background: var(--primary); border-radius: 50%; animation: blink 1.4s infinite; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%, 100% { opacity: 0.2; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }
+
+/* ── CHAT INPUT DOCK ── */
+.input-dock {
+  background: var(--bg-sidebar);
+  border-top: 1px solid var(--border);
+  padding: 20px 32px;
+  display: flex; flex-direction: column; align-items: center;
+  z-index: 10; transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+.input-wrapper {
+  width: 100%; max-width: 850px;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  display: flex; gap: 12px; align-items: flex-end;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.05);
+  transition: border-color 0.2s ease;
+}
+.input-wrapper:focus-within { border-color: var(--border-light); }
+.input-col { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+
+#qinput {
+  width: 100%; border: none; background: none; outline: none;
+  color: var(--text-main); font-family: var(--font-primary); font-size: 15px;
+  resize: none; max-height: 150px; line-height: 1.5; padding: 4px;
+}
+#qinput::placeholder { color: var(--text-faint); }
+.hint { font-size: 11px; font-weight: 500; color: var(--text-faint); margin-left: 4px; font-family: var(--font-primary); }
+
+#sendbtn {
+  background: linear-gradient(135deg, #f1c453 0%, #d4a02c 100%); color: #000;
+  border: none; border-radius: var(--radius); padding: 10px 24px;
+  font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s;
+  height: 42px; font-family: var(--font-primary); box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+  margin-bottom: 2px; flex-shrink: 0;
+}
+#sendbtn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--primary-glow); filter: brightness(1.1); }
+#sendbtn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; filter: none; }
+
+/* ── DASHBOARD PANEL ── */
+#dash-panel { overflow-y: auto; padding: 40px 32px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+#dash-panel::-webkit-scrollbar { width: 6px; }
+#dash-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px;}
+.dash-container { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px; }
+.dash-header h2 { font-family: var(--font-primary); font-size: 28px; font-weight: 700; margin-bottom: 8px; color: var(--text-main); letter-spacing: -0.01em; }
+.dash-header p { color: var(--text-muted); font-size: 15px; }
+
+/* Dashboard Controls */
+.dash-controls {
+  display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end;
+  background: var(--bg-sidebar); padding: 24px 28px;
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.ctrl-item { display: flex; flex-direction: column; gap: 8px; }
+.ctrl-item label { 
+  font-family: var(--font-primary); font-size: 11px; font-weight: 700; 
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; 
+}
+.ctrl-item select, .ctrl-item input {
+  background: var(--bg-app); border: 1px solid var(--border);
+  color: var(--text-main); padding: 0 16px; border-radius: var(--radius-sm);
+  font-family: var(--font-primary); font-weight: 500; font-size: 14px; outline: none; transition: 0.2s;
+  height: 46px; box-sizing: border-box;
+}
+.ctrl-item select:focus, .ctrl-item input:focus { border-color: var(--border-light); }
+
+#runbtn { 
+  background: var(--bg-surface); border: 1px solid var(--border); 
+  color: var(--text-main); padding: 0 28px; border-radius: var(--radius-sm); 
+  font-family: var(--font-primary); font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s; 
+  height: 46px; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+#runbtn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+#runbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.err-box { background: var(--danger-bg); border: 1px solid var(--danger); padding: 16px 20px; border-radius: var(--radius); color: var(--danger); font-weight: 500; font-size: 14px; display: none; border-left: 4px solid var(--danger); }
+.err-box.show { display: block; animation: fadeIn 0.3s ease; }
+.loading { display: none; padding: 40px; text-align: center; color: var(--primary); font-family: var(--font-primary); font-size: 14px; font-weight: 600; }
+.loading.show { display: block; }
+
+/* RESULTS WRAPPER */
+.results-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 40px; 
+  width: 100%;
+  animation: fadeIn 0.4s ease;
+}
+
+.metrics-grid { 
+  display: grid; 
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
+  gap: 20px; 
+}
+.metric-card { 
+  background: var(--bg-sidebar); border: 1px solid var(--border); 
+  padding: 24px 20px; border-radius: var(--radius-lg); 
+  display: flex; flex-direction: column; gap: 10px; 
+  box-shadow: var(--shadow-sm); transition: transform 0.2s; 
+}
+.metric-card:hover { transform: translateY(-2px); border-color: var(--border-light); }
+.metric-lbl { font-family: var(--font-primary); font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.metric-val { font-size: 32px; font-weight: 700; font-family: var(--font-primary); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.metric-val.pos { color: var(--success); text-shadow: 0 0 12px rgba(16,185,129,0.2); }
+.metric-val.neg { color: var(--danger); }
+.metric-val.gold { color: var(--primary); text-shadow: var(--primary-glow); }
+
+.chart-card { 
+  background: var(--bg-sidebar); border: 1px solid var(--border); 
+  padding: 32px; border-radius: var(--radius-lg); 
+  box-shadow: var(--shadow-sm); 
+}
+.chart-card h3 { font-family: var(--font-primary); font-size: 18px; font-weight: 700; margin-bottom: 24px; color: var(--text-main); }
+.chart-card canvas { width: 100%; min-height: 400px; max-height: 450px; }
+
+.principle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 8px; }
+.principle-card { background: var(--bg-surface); border: 1px solid var(--border); padding: 24px; border-radius: var(--radius); border-left: 4px solid var(--border); transition: border-color 0.2s; }
+.principle-card:nth-child(1) { border-left-color: var(--primary); }
+.principle-card:nth-child(2) { border-left-color: var(--text-faint); }
+.principle-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: var(--text-main); }
+.principle-card p { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+
+/* Responsive */
+@media (max-width: 950px) {
+  .sidebar { display: none; }
+  .topbar-left { display: none; } /* Just hiding left placeholder */
+  .topbar-center { position: static; transform: none; width: auto; flex: 1; justify-content: flex-start; }
+  .metrics-grid { grid-template-columns: 1fr 1fr; }
+  .principle-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <div class="brand-icon">JL</div>
+        Jesse Livermore
+      </div>
+    </div>
+    
+    <div class="sidebar-content">
+      
+      <div class="sidebar-section">
+        <div class="section-title">Trader Profile</div>
+        <div class="profile-block">
+          <div class="profile-avatar">JL</div>
+          <div class="profile-info">
+            <span class="profile-name">Jesse Livermore</span>
+            <span class="profile-sub">1877 – 1940</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-title">Knowledge Base</div>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <span class="stat-val">15,000</span>
+            <span class="stat-label">Q&A Pairs</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-val">6</span>
+            <span class="stat-label">Categories</span>
+          </div>
+          <div class="stat-box" style="grid-column: span 2;">
+            <span class="stat-val" id="chunk-count">—</span>
+            <span class="stat-label">Embeddings Processed</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-title">Suggested Queries</div>
+        <button class="nav-btn" onclick="quickAsk('How did you cut losses?')">How did you cut losses?</button>
+        <button class="nav-btn" onclick="quickAsk('What is the line of least resistance?')">Line of least resistance?</button>
+        <button class="nav-btn" onclick="quickAsk('How did you manage risk and position sizing?')">Risk & position sizing</button>
+        <button class="nav-btn" onclick="quickAsk('What role does psychology play in trading?')">Psychology in trading</button>
+      </div>
+      
+    </div>
+  </aside>
+
+  <main class="main-wrapper">
+    
+    <header class="topbar">
+      <div class="topbar-left"></div>
+      
+      <div class="topbar-center">
+        <div class="pill-container">
+          <button class="pill-btn active" onclick="switchTab('chat')">ChatBot</button>
+          <button class="pill-btn" onclick="switchTab('dashboard')">Backtest</button>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <div class="pill-container">
+          <button id="btn-light" onclick="setTheme('light')" class="pill-btn">Light</button>
+          <button id="btn-dark" onclick="setTheme('dark')" class="pill-btn active gold">Dark</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="panel active" id="chat-panel">
+      
+      <div class="chat-container">
+        <div class="chat-messages" id="msgs">
+          <div class="empty-state" id="welcome">
+            <div class="empty-logo">JL</div>
+            <h2>Ask Jesse Livermore</h2>
+            <p>Trained on <em>Reminiscences of a Stock Operator</em>. Ask me about trading strategies, risk management, or psychological approach.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-dock">
+        <div class="input-wrapper">
+          <div class="input-col">
+            <textarea id="qinput" rows="1" placeholder="Message Jesse Livermore..."></textarea>
+            <span class="hint">Shift + Return for new line</span>
+          </div>
+          <button id="sendbtn" onclick="sendMsg()">Send</button>
+        </div>
+      </div>
+      
+    </div>
+
+    <div class="panel" id="dash-panel-wrap">
+      <div id="dash-panel">
+        <div class="dash-container">
+          
+          <div class="dash-header">
+            <h2>Strategy Backtest</h2>
+            <p>Test Livermore's trend-following breakout rules against a buy-and-hold baseline.</p>
+          </div>
+
+          <div class="dash-controls">
+            <div class="ctrl-item">
+              <label>Asset Symbol</label>
+              <select id="stockSelect">
+                <option value="GOOGL">GOOGL — Alphabet</option>
+                <option value="AAPL">AAPL — Apple</option>
+                <option value="MSFT">MSFT — Microsoft</option>
+                <option value="NVDA">NVDA — NVIDIA</option>
+                <option value="META">META — Meta</option>
+                <option value="TSLA">TSLA — Tesla</option>
+                <option value="AMZN">AMZN — Amazon</option>
+              </select>
+            </div>
+            <div class="ctrl-item">
+              <label>Start Date</label>
+              <input type="date" id="startDate" value="2020-01-01"/>
+            </div>
+            <div class="ctrl-item">
+              <label>End Date</label>
+              <input type="date" id="endDate" value="2025-12-31"/>
+            </div>
+            <button id="runbtn" onclick="runBacktest()">Run Simulation</button>
+          </div>
+
+          <div class="err-box" id="errBox"></div>
+          <div class="loading" id="loading">Running historical simulation...</div>
+
+          <div id="dash-results" class="results-wrapper" style="display:none">
+            
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <span class="metric-lbl">Asset Evaluated</span>
+                <span class="metric-val gold" id="res-symbol">—</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-lbl">Buy & Hold Return</span>
+                <span class="metric-val" id="res-bh">—</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-lbl">Strategy Return</span>
+                <span class="metric-val" id="res-strat">—</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-lbl">Net Outperformance</span>
+                <span class="metric-val" id="res-out">—</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-lbl">Total Trades Fired</span>
+                <span class="metric-val" id="res-trades">—</span>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <h3>Cumulative Returns Comparison</h3>
+              <canvas id="returnChart"></canvas>
+            </div>
+
+            <div class="chart-card" style="padding-bottom: 40px;">
+              <h3>Simulation Insights</h3>
+              <div class="principle-grid" id="insights-grid">
+                </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── Global Config ─────────────────────────────────────────────────────────────
+const BACKEND_URL = "https://Ullas07-livermore-chatbot.hf.space";
+
+// ── Theme Management ──────────────────────────────────────────────────────────
+let chartInstance = null;
+
+function setTheme(theme) {
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.getElementById('btn-light').classList.add('active', 'gold');
+    document.getElementById('btn-dark').classList.remove('active', 'gold');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    document.getElementById('btn-dark').classList.add('active', 'gold');
+    document.getElementById('btn-light').classList.remove('active', 'gold');
+  }
+  updateChartTheme();
+}
+
+function updateChartTheme() {
+  if (!chartInstance) return;
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  
+  const textColor = isLight ? "#475569" : "#94a3b8";
+  const gridColor = isLight ? "#e2e8f0" : "#2a3040";
+  const tooltipBg = isLight ? "#ffffff" : "#1c2130";
+  const tooltipBorder = isLight ? "#e2e8f0" : "#3b4358";
+
+  chartInstance.options.plugins.legend.labels.color = textColor;
+  chartInstance.options.plugins.tooltip.backgroundColor = tooltipBg;
+  chartInstance.options.plugins.tooltip.borderColor = tooltipBorder;
+  chartInstance.options.plugins.tooltip.titleColor = textColor;
+  chartInstance.options.plugins.tooltip.bodyColor = textColor;
+  chartInstance.options.scales.x.ticks.color = textColor;
+  chartInstance.options.scales.y.ticks.color = textColor;
+  chartInstance.options.scales.x.grid.color = gridColor;
+  chartInstance.options.scales.y.grid.color = gridColor;
+  
+  chartInstance.update();
+}
+
+// ── State & Initial Load ──────────────────────────────────────────────────────
+let msgCount = 0;
+const msgs = document.getElementById("msgs");
+
+document.addEventListener("DOMContentLoaded", () => {
+    fetchStats();
+});
+
+async function fetchStats(){
+  try{
+    const r = await fetch(BACKEND_URL+"/stats");
+    const d = await r.json();
+    if(d.chunks) document.getElementById("chunk-count").textContent = d.chunks;
+  } catch(e){
+    console.warn("Could not fetch backend stats automatically.");
+  }
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab){
+  document.querySelectorAll(".topbar-center .pill-btn").forEach((t,i)=>{
+    t.classList.toggle("active", (i===0&&tab==="chat")||(i===1&&tab==="dashboard"));
+  });
+  document.getElementById("chat-panel").classList.toggle("active", tab==="chat");
+  document.getElementById("dash-panel-wrap").classList.toggle("active", tab==="dashboard");
+}
+
+// ── Chat helpers ──────────────────────────────────────────────────────────────
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function now(){ return new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); }
+function scroll(){ 
+  const container = document.querySelector('.chat-container');
+  container.scrollTop = container.scrollHeight; 
+}
+function clearWelcome(){ const w=document.getElementById("welcome"); if(w) w.remove(); }
+function formatAns(s){ return esc(s).replace(/\n\n/g,"</p><p>").replace(/\n/g,"<br>"); }
+
+function addUserMsg(text){
+  clearWelcome(); msgCount++;
+  const d=document.createElement("div"); d.className="msg user";
+  d.innerHTML=`
+    <div class="msg-av">U</div>
+    <div class="msg-body">
+      <div class="bubble"><p>${esc(text)}</p></div>
+      <div class="msg-meta">
+        <span class="msg-time">${now()}</span>
+      </div>
+    </div>
+  `;
+  msgs.appendChild(d); scroll();
+}
+
+function addBotMsg(answer, context, labels){
+  const id="ctx-"+(++msgCount);
+  const labHtml=(labels||[]).map(l=>`<span class="tag">${esc(l)}</span>`).join("");
+  const ctxSection = context ? `
+    <button class="ctx-btn" onclick="toggleCtx('${id}')">▸ Retrieved Context</button>
+    <div class="ctx-box" id="${id}">${esc(context)}</div>
+  ` : "";
+  
+  const d=document.createElement("div"); d.className="msg bot";
+  d.innerHTML=`
+    <div class="msg-av">JL</div>
+    <div class="msg-body">
+      <div class="bubble"><p>${formatAns(answer)}</p></div>
+      <div class="msg-meta">
+        <span class="msg-time">${now()}</span>
+        ${labHtml}
+        ${ctxSection ? `<span>&middot;</span> ${ctxSection}` : ''}
+      </div>
+    </div>
+  `;
+  msgs.appendChild(d); scroll();
+}
+
+function addErrMsg(text){
+  const d=document.createElement("div"); d.className="msg sys";
+  d.innerHTML=`
+    <div class="msg-av">!</div>
+    <div class="msg-body">
+      <div class="bubble"><p>${esc(text)}</p></div>
+      <div class="msg-meta"><span class="msg-time">${now()}</span></div>
+    </div>
+  `;
+  msgs.appendChild(d); scroll();
+}
+
+function addTyping(){
+  const d=document.createElement("div"); d.className="msg bot"; d.id="typing";
+  d.innerHTML=`
+    <div class="msg-av">JL</div>
+    <div class="msg-body">
+      <div class="bubble" style="padding:18px 20px">
+        <div class="typing"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+  `;
+  msgs.appendChild(d); scroll();
+}
+function removeTyping(){ const t=document.getElementById("typing"); if(t) t.remove(); }
+
+function toggleCtx(id){
+  const box=document.getElementById(id);
+  box.classList.toggle("open");
+}
+
+// ── Chat send ─────────────────────────────────────────────────────────────────
+const ta = document.getElementById("qinput");
+ta.addEventListener("input", ()=>{ ta.style.height="auto"; ta.style.height=Math.min(ta.scrollHeight,150)+"px"; });
+ta.addEventListener("keydown", e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendMsg(); }});
+
+async function sendMsg(){
+  const q = ta.value.trim();
+  if(!q) return;
+  
+  ta.value=""; ta.style.height="auto";
+  document.getElementById("sendbtn").disabled=true;
+  addUserMsg(q); addTyping();
+  
+  try{
+    const r = await fetch(BACKEND_URL+"/ask", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({query: q})
+    });
+    const data = await r.json();
+    removeTyping();
+    if(!r.ok) addErrMsg(data.error || "Server error "+r.status);
+    else addBotMsg(data.answer, data.context, data.labels);
+  } catch(e){
+    removeTyping();
+    addErrMsg("Failed to connect to the backend. Please check the server status.");
+  }
+  document.getElementById("sendbtn").disabled=false;
+  ta.focus();
+}
+
+function quickAsk(q){ switchTab('chat'); ta.value=q; sendMsg(); }
+
+// ── Backtest ──────────────────────────────────────────────────────────────────
+async function runBacktest(){
+  const symbol    = document.getElementById("stockSelect").value;
+  const startDate = document.getElementById("startDate").value;
+  const endDate   = document.getElementById("endDate").value;
+
+  showErr("");
+  document.getElementById("loading").classList.add("show");
+  document.getElementById("dash-results").style.display = "none";
+  document.getElementById("runbtn").disabled = true;
+
+  try{
+    const r = await fetch(BACKEND_URL+"/backtest", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({symbol, start_date: startDate, end_date: endDate})
+    });
+    const d = await r.json();
+    document.getElementById("loading").classList.remove("show");
+    document.getElementById("runbtn").disabled = false;
+
+    if(!r.ok){ showErr(d.error || "Server error"); return; }
+    renderResults(d);
+  } catch(e){
+    document.getElementById("loading").classList.remove("show");
+    document.getElementById("runbtn").disabled = false;
+    showErr("Connection failed. Check server status.");
+  }
+}
+
+function showErr(msg){
+  const box = document.getElementById("errBox");
+  box.textContent = msg;
+  box.classList.toggle("show", !!msg);
+}
+
+function renderResults(d){
+  document.getElementById("res-symbol").textContent = d.symbol;
+
+  const bhEl = document.getElementById("res-bh");
+  bhEl.textContent = (d.bh_return >= 0 ? "+" : "") + d.bh_return.toFixed(1) + "%";
+  bhEl.className = "metric-val " + (d.bh_return >= 0 ? "pos" : "neg");
+
+  const stEl = document.getElementById("res-strat");
+  stEl.textContent = (d.strategy_return >= 0 ? "+" : "") + d.strategy_return.toFixed(1) + "%";
+  stEl.className = "metric-val " + (d.strategy_return >= 0 ? "pos" : "neg");
+
+  const outEl = document.getElementById("res-out");
+  outEl.textContent = (d.outperformance >= 0 ? "+" : "") + d.outperformance.toFixed(1) + "%";
+  outEl.className = "metric-val " + (d.outperformance >= 0 ? "pos" : "neg");
+  document.getElementById("res-trades").textContent = d.trade_count;
+
+  // Render Insights
+  const insights = buildInsights(d);
+  document.getElementById("insights-grid").innerHTML = insights.map((ins, i) => `
+    <div class="principle-card" style="${i===0 ? 'border-left-color:var(--primary)' : ''}">
+      <h4>${ins.title}</h4>
+      <p>${ins.body}</p>
+    </div>
+  `).join("");
+
+  // Chart Rendering
+  if(chartInstance) chartInstance.destroy();
+  const ctx = document.getElementById("returnChart").getContext("2d");
+  
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const textColor = isLight ? "#475569" : "#94a3b8";
+  const gridColor = isLight ? "#e2e8f0" : "#2a3040";
+  const tooltipBg = isLight ? "#ffffff" : "#1c2130";
+  const tooltipBorder = isLight ? "#e2e8f0" : "#3b4358";
+  const chartPrimary = isLight ? "#ca8a04" : "#d4af37";
+  const chartPrimaryBg = isLight ? "rgba(202,138,4,0.1)" : "rgba(212,175,55,0.15)";
+
+  chartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: d.dates,
+      datasets: [
+        {
+          label: "Livermore Strategy",
+          data: d.strategy_series,
+          borderColor: chartPrimary,
+          backgroundColor: chartPrimaryBg,
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.1,
+          fill: true,
+        },
+        {
+          label: "Buy & Hold",
+          data: d.bh_series,
+          borderColor: textColor,
+          backgroundColor: "transparent",
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.1,
+          fill: false,
+          borderDash: [5, 5],
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { labels: { color: textColor, font: { family: "Inter", size: 12 } } },
+        tooltip: {
+          backgroundColor: tooltipBg,
+          borderColor: tooltipBorder,
+          borderWidth: 1,
+          titleColor: textColor,
+          bodyColor: textColor,
+          padding: 12,
+          cornerRadius: 8,
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: textColor, font: { family: "Inter", size: 11 }, maxTicksLimit: 8 }, grid: { color: gridColor } },
+        y: { ticks: { color: textColor, font: { family: "Inter", size: 11 }, callback: v => v.toFixed(0) + "%" }, grid: { color: gridColor } }
+      }
+    }
+  });
+
+  // Display results via Flex layout
+  document.getElementById("dash-results").style.display = "flex";
+}
+
+function buildInsights(d){
+  const won       = d.strategy_return > d.bh_return;
+  const noTrades  = d.trade_count === 0;
+
+  if(noTrades) return [
+    { title: "No Entry Signal Triggered", body: `The strategy never entered ${d.symbol}. Price never broke above the 20-day high while simultaneously remaining above both 50MA and 200MA.` },
+    { title: "Trend Confirmation Needed", body: "Livermore insisted on waiting for the market to confirm his thesis. Staying out entirely during chop or downtrends is not failure—it's discipline." }
+  ];
+
+  if(won) return [
+    { title: "Breakout Outperformance", body: `Livermore's breakout rules outperformed passive holding. Entering only on confirmed highs above major MAs filtered out false starts.` },
+    { title: "Exit Discipline", body: "Exiting on 20-day low breaks locked in gains and cut losses before they became catastrophic drawdowns." }
+  ];
+
+  return [
+    { title: "Whipsaw Environment", body: `The strategy lagged buy-and-hold. This typically occurs in volatile, range-bound markets or parabolic stocks that suffer sharp corrections followed by immediate V-shaped recoveries.` },
+    { title: "Capital Preservation", body: "While it underperformed in total return, the strategy exited during breaks of support. Passive holding absorbs full drawdowns, whereas trend-following trades minor cuts for safety." }
+  ];
+}
+</script>
+</body>
+</html>
