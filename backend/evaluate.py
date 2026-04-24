@@ -26,7 +26,7 @@ from langchain_core.documents import Document
 load_dotenv()
 
 # ── Config ─────────────────────────────────────────────────────────────────────
-CSV_PATH        = "Livermore_QA_Dataset_Extended.csv"
+CSV_PATH        = "final_dataset.csv"
 EMBED_MODEL     = "sentence-transformers/paraphrase-MiniLM-L6-v2"
 FAISS_PATH      = "faiss_index"
 GROQ_MODEL      = "llama-3.3-70b-versatile"
